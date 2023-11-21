@@ -1,0 +1,51 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pic/dettagliocarri.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PIC Dettaglio Carri",
+    "type": "object",
+    "properties": {
+        "IDTreno": {
+            "type": "string",
+            "description": "Codice alfanumerico che identifica il treno"
+        },
+        "IDTratta": {
+            "type": "string",
+            "description": "Codice alfanumerico che identifica la tratta"
+        },
+		"Progressivo": {
+                "type": "number",
+                "description": "Progressivo località"
+		},
+        "DataOraPrevistoArrivo": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Data e ora prevista arrivo del treno"
+        },
+        "DataOraPrevistoPartenza": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Data e ora prevista partenza del treno"
+        },
+        "Origine": {
+            "type": "string",
+            "description": "Stazione di origine"
+        },
+        "Destinazione": {
+            "type": "string",
+            "description": "Stazione di destinazione"
+        },
+        "IDCarro": {
+            "type": "string",
+            "description": "Codice alfanumerico che identifica il carro"
+        },
+        "KmPercorsi": {
+            "type": "number",
+            "description": "Km percorsi"
+        },
+        "CarroRetrofillato": {
+            "type": "string",
+            "description": "Flag carro retrofillato"
+        }
+    },
+	"required": ["IDTreno"]
+}

@@ -1,0 +1,24 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pir/dettagliotratte.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PIR Dettaglio Tratte",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "IDTratta": {
+                "type": "string",
+                "description": "Codice alfanumerico che identifica la tratta"
+            },
+            "TariffaAccesso": {
+                "type": "number",
+                "description": "Tariffa della tratta"
+            },
+            "Treno KM": {
+                "type": "number",
+                "description": "Km treno"
+            }
+        },
+        "required": ["IDTratta"]
+    }
+}

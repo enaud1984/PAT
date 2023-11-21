@@ -1,0 +1,37 @@
+ingestion.Connectors package
+============================
+
+Submodules
+----------
+
+ingestion.Connectors.FTPConnector module
+----------------------------------------
+
+.. automodule:: ingestion.Connectors.FTPConnector
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.Connectors.KafkaConnector module
+------------------------------------------
+
+.. automodule:: ingestion.Connectors.KafkaConnector
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.Connectors.SoapConnector module
+-----------------------------------------
+
+.. automodule:: ingestion.Connectors.SoapConnector
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: ingestion.Connectors
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,0 +1,11 @@
+<map id="inheritance442751b62e" name="inheritance442751b62e">
+<area shape="rect" id="node1" title="Helper class that provides a standard way to create an ABC using" alt="" coords="76,86,138,107"/>
+<area shape="rect" id="node3" href="#pat.chain_of_responsability.BaseRing" target="_top" title="Interfaccia Base dei vari anelli." alt="" coords="261,86,459,107"/>
+<area shape="rect" id="node2" href="#pat.chain_of_responsability.BaseChain" target="_top" title="Classe BaseChain" alt="" coords="4,45,209,66"/>
+<area shape="rect" id="node9" href="#pat.chain_of_responsability.ManagerChain" target="_top" title="Classe gestore Chain" alt="" coords="249,45,470,66"/>
+<area shape="rect" id="node4" href="#pat.chain_of_responsability.DataAcquisitionRead" target="_top" title="Anello per lettura input dati da sorgente" alt="" coords="511,4,763,25"/>
+<area shape="rect" id="node5" href="#pat.chain_of_responsability.DataAcquisitionWrite" target="_top" title="Anello per scrittura input dati su hdfs, bypassabile cancellando la chiave:" alt="" coords="510,45,764,66"/>
+<area shape="rect" id="node6" href="#pat.chain_of_responsability.DataPreProcess" target="_top" title="Anello per preprocessamento input , bypassabile cancellando la chiave:" alt="" coords="521,86,753,107"/>
+<area shape="rect" id="node7" href="#pat.chain_of_responsability.DataProcess" target="_top" title="Anello per processamento input , bypassabile cancellando la chiave:" alt="" coords="530,127,744,148"/>
+<area shape="rect" id="node8" href="#pat.chain_of_responsability.DataStoring" target="_top" title="Anello per memorizzazione dei dati." alt="" coords="533,168,741,189"/>
+</map>

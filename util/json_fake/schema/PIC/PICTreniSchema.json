@@ -1,0 +1,64 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pic/treni.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PIC Treni",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "IDTreno": {
+                "type": "string",
+                "description": "Codice alfanumerico che identifica il treno"
+            },
+            "IDTratta": {
+                "type": "string",
+                "description": "Codice alfanumerico che identifica la tratta"
+            },
+			"Progressivo": {
+                "type": "number",
+                "description": "Progressivo località"
+            },
+            "DataOraPrevistoArrivo": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora prevista arrivo del treno"
+            },
+            "DataOraPrevistoPartenza": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora prevista partenza del"
+            },
+            "Origine": {
+                "type": "string",
+                "description": "Stazione di origine"
+            },
+            "Destinazione": {
+                "type": "string",
+                "description": "Stazione di destinazione"
+            },
+            "DataOraEffettivaArrivo": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora effettiva arrivo del treno"
+            },
+            "DataOraEffettivaPartenza": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora effettiva partenza del treno"
+            },
+            "TipologiaTrazione": {
+                "type": "string",
+                "description": "Tipologia della trazione eg. Diesel"
+            },
+            "KmPercorsi": {
+                "type": "number",
+                "description": "Km percorsi"
+            },
+            "NodoDiRiferimento": {
+                "type": "string",
+                "description": "Nodo di riferimento"
+            }
+        },
+        "required": ["IDTreno"]
+    }
+}

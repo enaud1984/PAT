@@ -1,0 +1,79 @@
+ingestion package
+=================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   ingestion.Connectors
+
+Submodules
+----------
+
+ingestion.chain\_of\_responsability module
+------------------------------------------
+
+.. automodule:: ingestion.chain_of_responsability
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. inheritance-diagram:: ingestion.chain_of_responsability.DataAcquisitionRead
+
+ingestion.class\_tool module
+----------------------------
+
+.. automodule:: ingestion.class_tool
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.connector module
+--------------------------
+
+.. automodule:: ingestion.connector
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.converter module
+--------------------------
+
+.. automodule:: ingestion.converter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.db\_utility module
+----------------------------
+
+.. automodule:: ingestion.db_utility
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.env module
+--------------------
+
+.. automodule:: ingestion.env
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+ingestion.utility module
+------------------------
+
+.. automodule:: ingestion.utility
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: ingestion
+   :members:
+   :undoc-members:
+   :show-inheritance:

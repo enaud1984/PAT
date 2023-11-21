@@ -1,0 +1,164 @@
+{
+	"debug": {
+		"write_operations": true,
+		"print": true,
+		"timing_and_profile": false
+	},
+	"app": {
+		"name": "Ztl Generali",
+		"code" : -1,
+		"exit_code" : 0,
+		"validity_minutes": 5,
+		"continue_if_except" : false,
+		"stop_and_continue_if_except": false,
+		"createhivetable": false,
+		"readdata_threaded" : false,
+		"builddataframe_threaded": false,
+		"writedatatohdfs_threaded": false,
+		"builddataframe_union": false,
+		"builddataframe_union_limit_df_size": -1,
+		"writedatatohive_threaded": false,
+		"writedatatodb_threaded" : false,
+		"max_pool_thread" : 3,
+		"db_logger": true,
+		"init_spark": true
+	},
+	"db_log": {
+		"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+
+
+	"db": {
+		"type": "POSTGRES",
+		"host" : "10.206.227.231",
+		"port" : "5432",
+		"database" : "drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar",
+		"log_table" : "ingestion.log",
+		"log_table_hdfs": "ingestion.log_hdfs",
+		"param":{"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt", "user":"drivebelt", "password":"4lm42021"},
+		"postgres_param":{"user": "drivebelt","password": "4lm42021","driver": "org.postgresql.Driver"},
+		"postgres_url":"jdbc:postgresql://10.206.227.231:5432/drivebelt"
+	},
+	"hdfs": {
+		"url": "http://ip-10-206-227-251.eu-west-1.compute.internal:9870",
+		"username": "ec2-user"
+	},
+	"hive_": {
+		"db": "drivebelt",
+		"file_format": "orc"
+	},
+	"log": {
+		"filename": "ztl_generali%Y%m%d%H%M%S%f.log",
+		"local_folder": "/tmp",
+		"remote_folder": "/Projects/rsm/Ingestion/test/logs/ZtlGenerali/%Y/%m/%d/%H"
+	},
+	"db_logger": {
+		"type": "POSTGRES",
+		"host" : "10.206.227.231",
+		"port" : "5432",
+		"database" : "drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar",
+		"log_table" : "ingestion.log",
+		"log_table_hdfs": "ingestion.log_hdfs",
+		"param":{"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt", "user":"drivebelt", "password":"4lm42021"},
+		"postgres_param":{"user": "drivebelt","password": "4lm42021","driver": "org.postgresql.Driver"},
+		"postgres_url":"jdbc:postgresql://10.206.227.231:5432/drivebelt"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/ojdbc8.jar",
+		"spark.executor.extraClassPath": "c:/temp/ojdbc8.jar"
+	},
+	"common": {
+		"service": {
+			"ingestion": {
+				"db": {
+					"spark": true,
+					"mode": "overwrite"
+				},
+				"hive": {
+					"db": "rsm",
+					"mode": "append"
+				}
+			}
+		}
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "2",
+				"url": "spark:jdbc:oracle://10.64.20.10:1521/dssdbsvi",
+				"param": {
+					"table" : "ANTM_MAPPATURA500",
+					"schema" : "GEODSS_DEV",
+					"user": "GEODSS_DEV",
+					"password": "EndpointS3cur1t1",
+					"service": "dssdbsvi",
+					"driver": "oracle.jdbc.driver.OracleDriver",
+					"jar_filepath": "ojdbc8.jar"
+				}
+			}
+		],
+		"DataAcquisitionWrite": [
+			{
+				"id_source": "1",
+				"url": "webhdfs://10.206.227.251:9870/ingestion/storage/Example",
+				"param": {
+				}
+			}
+		],
+		"DataPreProcess": [
+			{
+				"test": "test"
+			}
+		],
+		"DataProcess": [
+			{
+				"test": "test"
+			}
+		],
+		"DataStoring": [
+			{
+				"id_storable": "3",
+				"url" : "jdbc:impala://10.206.227.254:21050/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "com.cloudera.impala.jdbc41.Driver",
+					"jar_filepath" : "ImpalaJDBC41.jar"
+				}
+			},
+			{
+				"id_storable": "1",
+				"url" : "jdbc:postgresql://10.206.227.231:5432/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "org.postgresql.Driver",
+					"user" : "drivebelt",
+					"password" : "4lm42021",
+					"jar_filepath" : "postgresql-42.2.14.jar"
+				}
+			}
+		]
+	},
+    "var":{}
+}

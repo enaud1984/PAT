@@ -1,0 +1,58 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pic/flussomercetreni.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PIC Flusso Merce",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "IDTreno": {
+                "type": "string",
+                "description": "Codice alfanumerico che identifica il treno"
+            },
+            "IDTratta": {
+                "type": "string",
+                "description": "Codice alfanumerico che identifica la tratta"
+            },
+			"Progressivo": {
+                "type": "number",
+                "description": "Progressivo località"
+            },
+            "DataOraPrevistoArrivo": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora prevista arrivo del treno"
+            },
+            "DataOraPrevistoPartenza": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora prevista partenza del"
+            },
+            "Origine": {
+                "type": "string",
+                "description": "Stazione di origine"
+            },
+            "Destinazione": {
+                "type": "string",
+                "description": "Stazione di destinazione"
+            },
+            "TipologiaTrasporto": {
+                "type": "string",
+                "description": "Tipologia della trasport eg. tradizionale"
+            },
+            "Tonnellate": {
+                "type": "number",
+                "description": "Tn"
+            },
+            "MercePericolosa": {
+                "type": "string",
+                "description": "Merce Pericolosa"
+            },
+            "TipologiaMerce": {
+                "type": "string",
+                "description": "Categoria della merce trasportata"
+            }
+        },
+        "required": ["IDTreno"]
+    }
+}

@@ -1,0 +1,1 @@
+SELECT * FROM anagrafica.dm_tempo_indisponibilita LIMIT 100

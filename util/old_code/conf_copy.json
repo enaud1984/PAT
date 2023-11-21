@@ -1,0 +1,184 @@
+{
+	"debug": {
+		"write_operations": true,
+		"print": true,
+		"timing_and_profile": false
+	},
+	"app": {
+		"name": "Ztl Generali",
+		"code" : -1,
+		"exit_code" : 0,
+		"validity_minutes": 5,
+		"continue_if_except" : false,
+		"stop_and_continue_if_except": false,
+		"createhivetable": false,
+		"readdata_threaded" : false,
+		"builddataframe_threaded": false,
+		"writedatatohdfs_threaded": false,
+		"builddataframe_union": false,
+		"builddataframe_union_limit_df_size": -1,
+		"writedatatohive_threaded": false,
+		"writedatatodb_threaded" : false,
+		"max_pool_thread" : 3,
+		"db_logger": true,
+		"init_spark": false
+	},
+	"db_log": {
+		"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+
+
+	"db": {
+		"type": "POSTGRES",
+		"host" : "10.206.227.231",
+		"port" : "5432",
+		"database" : "drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar",
+		"log_table" : "ingestion.log",
+		"log_table_hdfs": "ingestion.log_hdfs",
+		"param":{"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt", "user":"drivebelt", "password":"4lm42021"},
+		"postgres_param":{"user": "drivebelt","password": "4lm42021","driver": "org.postgresql.Driver"},
+		"postgres_url":"jdbc:postgresql://10.206.227.231:5432/drivebelt"
+	},
+	"hdfs": {
+		"url": "http://ip-10-206-227-251.eu-west-1.compute.internal:9870",
+		"username": "ec2-user"
+	},
+	"hive_": {
+		"db": "drivebelt",
+		"file_format": "orc"
+	},
+	"log": {
+		"filename": "ztl_generali%Y%m%d%H%M%S%f.log",
+		"local_folder": "/tmp",
+		"remote_folder": "/Projects/rsm/Ingestion/test/logs/ZtlGenerali/%Y/%m/%d/%H"
+	},
+	"db_logger": {
+		"type": "POSTGRES",
+		"host" : "10.206.227.231",
+		"port" : "5432",
+		"database" : "drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar",
+		"log_table" : "ingestion.log",
+		"log_table_hdfs": "ingestion.log_hdfs",
+		"param":{"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt", "user":"drivebelt", "password":"4lm42021"},
+		"postgres_param":{"user": "drivebelt","password": "4lm42021","driver": "org.postgresql.Driver"},
+		"postgres_url":"jdbc:postgresql://10.206.227.231:5432/drivebelt"
+	},
+	"spark_conf": {
+		"spark_sql_sources_partitionOverwriteMode": "dynamic",
+		"hive_exec_dynamic_partition": "true",
+		"hive_exec_dynamic_partition_mode": "nonstrict",
+		"hive_exec_max_dynamic_partitions": "1000",
+		"hive_exec_max_dynamic_partition_pernode": "100"
+	},
+	"common": {
+		"service": {
+			"ingestion": {
+				"db": {
+					"spark": true,
+					"mode": "overwrite"
+				},
+				"hive": {
+					"db": "rsm",
+					"mode": "append"
+				}
+			}
+		}
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+
+
+webhdfs://ip-10-206-227-251.eu-west-1.compute.internal:9870/
+
+			{
+				"id_source": "1",
+				"url": "kafka_ssl://hadoops3:9092?topic=ztl-generali&group_id=ztl-generali-group",
+				"parameter": {
+					"ca_location": "CARoot.pem",
+					"key_location": "key.pem",
+					"certificate_location": "certificate.pem",
+					"type": "JSON",
+					"timeout": 3600,
+					"method": "GET"
+				}
+			},
+			{	"id_source": "2",
+				"url" : "spark:jdbc:impala://10.206.227.254:21050/drivebelt",
+				"parameter" : {
+					"schema" : null ,
+					"driver" : "com.cloudera.impala.jdbc41.Driver",
+					"jar_filepath" : "ImpalaJDBC41.jar",
+					"table": "nometabella o query (select * from tt where) as t"
+				}
+			},
+			{
+				"url" : "spark:hive://drivebelt",
+				"parameter" : {
+					"table": "nometabella o query (select * from tt where) as t"
+				}
+			}
+		],
+		"DataAcquisitionWrite": [
+			{
+				"id_source": "1",
+				"url": "webhdfs://10.54.23.45:50070",
+				"parameter": {
+					"multiprocess": "True",
+					"path": "/Projects/rsm/Ingestion/storage/ZtlGenerali/%Y/%m/%d/%H/%M/",
+					"filename": "ztl_generali_%Y%m%d%H%M%S%f.xls"
+				}
+			}
+		],
+		"DataPreProcess": [
+			{
+				"test": "test"
+			}
+		],
+		"DataProcess": [
+			{
+				"test": "test"
+			}
+		],
+		"DataStoring": [
+			{
+				"id_storing": "postgres_store",
+				"url" : "spark:jdbc:postgresql://10.206.227.231:5432/drivebelt",
+				"parameter" : {
+					"schema" : "ingestion",
+					"driver" : "org.postgresql.Driver",
+					"user" : "drivebelt",
+					"password" : "4lm42021",
+					"jar_filepath" : "postgresql-42.2.14.jar"
+				}
+			},
+			{
+				"id_storing": "hive_store",
+				"url" : "hive://drivebelt",
+				"parameter" : {
+					"file_format": "orc",
+					"mode": "append",
+					"location": "path_to_hdfs",
+					"partition_fields": "['day','month','year']",
+					"table": "database.table",
+					"schema": "StructType..."
+				}
+			}
+		]
+	},
+    "var":{}
+}

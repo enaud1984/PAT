@@ -1,0 +1,12 @@
+[{
+		"IDTreno": "axajh82323",
+		"IDTratta": "dkj734lk",
+		"Progressivo": 34,
+		"DataOraPrevistoArrivo": "2022-02-01T00:00:00",
+		"DataOraPrevistoPartenza": "2022-02-01T00:00:00",
+		"Origine": "Pescara",
+		"Destinazione": "Ancona",
+		"IDCarro": "asdh283",
+		"KmPercorsi": 300,
+		"CarroRetrofillato": "retrofilato"
+}]

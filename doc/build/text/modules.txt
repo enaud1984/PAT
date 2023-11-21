@@ -1,0 +1,36 @@
+pat
+***
+
+* pat package
+
+  * Subpackages
+
+    * pat.Connectors package
+
+      * Submodules
+
+      * pat.Connectors.FTPConnector module
+
+      * pat.Connectors.KafkaConnector module
+
+      * pat.Connectors.SoapConnector module
+
+      * Module contents
+
+  * Submodules
+
+  * pat.chain_of_responsability module
+
+  * pat.class_tool module
+
+  * pat.connector module
+
+  * pat.converter module
+
+  * pat.db_utility module
+
+  * pat.env module
+
+  * pat.utility module
+
+  * Module contents

@@ -1,0 +1,20 @@
+{
+	//postgres + jaydebeapi
+	"db_log": {
+		"url":"jdbc:postgresql://localhost:5432/postgres_db",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "postgres",
+		"password" : "postgres",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	//postgres + sql_alchemy
+	"db_log": {
+		"url":"postgresql://localhost:5432/postgres_db",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "postgres",
+		"password" : "postgres",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	}
+}

@@ -1,0 +1,23 @@
+Gestione Eccezioni Custom
+  - eliminazione di eccezioni troppo dettagliate
+  - aggiungere exit_message a log con descrizione messaggio di errore
+
+custom_query in DataAcquisitionRead
+  - Read Hive --> ok
+  - rivedere JdbcConnector write con query
+
+eliminare columns = data.pop(0) in JdbcConnectorwrite
+
+Eliminare obbligatorietà di tutte le librerie, usare try except
+  esempio , obbligo kafka anche se non utilizzato
+
+Controlli (validate_config)
+  - se c'è almeno un connettore che usa spark, enable_spark deve essere true
+
+aggiungere log con attenzione a info e debug
+
+test connettori kafka - soap - ftp
+
+aggiustare insert con execute many
+
+aggiungere tipo request e tipo response ai ring (Source[] e Storable[])

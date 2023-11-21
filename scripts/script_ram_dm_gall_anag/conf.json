@@ -1,0 +1,117 @@
+{
+	"app": {
+		"name": "ztl_generali",
+		"code" : -1,
+		"exit_code" : 0,
+		"validity_minutes": 5,
+		"db_logger": true,
+		"init_spark": true
+	},
+	"env" : {
+		"src" : {
+			"spark_connector_url" : "spark:jdbc:oracle://10.64.20.10:1521/dssdbsvi",
+			"db_table" : "GALLERIE_DM_ANAGRAFICA_TMP",
+			"db_usr" : "GEODSS_DEV",
+			"db_pwd" : "EndpointS3cur1t1",
+			"db_service" : "GEODSS_DEV",
+			"db_driver" : "oracle.jdbc.driver.OracleDriver",
+			"db_jar" : "ojdbc8.jar",
+			"db_query" : "(SELECT * FROM GEODSS_DEV.GALLERIE_DM_ANAGRAFICA_TMP)"
+		},
+		"dst" : {
+			"spark_connector_url" : "spark:jdbc:oracle://10.64.20.10:1521/dssdbsvi",
+			"connector_url" : "jdbc:oracle://10.64.20.10:1521/dssdbsvi",
+			"db_url" : "jdbc:oracle:thin:@//10.64.20.10:1521/dssdbsvi",
+			"db_usr" : "GEODSS_ADT",
+			"db_schema" : "GEODSS_ADT",
+			"db_pwd" : "AnAsOracledbSvilTgt",
+			"db_service" : "GEODSS_ADT",
+			"db_driver" : "oracle.jdbc.driver.OracleDriver",
+			"db_jar" : "ojdbc8.jar",
+			"db_table_now" : "V_GALLERIE_DM_ANAGRAFICA_NOW",
+			"db_query_now" : "(SELECT * FROM ${env.dst.db_usr}.${env.dst.db_table_now})",
+			"db_table_operation" : "GALLERIE_DM_ANAGRAFICA_OPERATION",
+			"call_procedure" : "CALL ${env.dst.db_usr}.PROC_GALLERIE_DM_ANAGRAFICA()"
+		},
+		"primary_key" : ["IDOPERA"],
+		"now" : "%d-%m-%Y %H:%M:%S"
+	},
+	"db_log": {
+		"url": "${env.dst.db_url}",
+		"schema": "${env.dst.db_schema}",
+		"driver": "${env.dst.db_driver}",
+		"user": "${env.dst.db_usr}",
+		"password": "${env.dst.db_pwd}",
+		"service": "${env.dst.db_service}",
+		"jar_filepath" : "${env.dst.db_jar}"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/ojdbc8.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar",
+		"spark.executor.extraClassPath": "c:/temp/ojdbc8.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar"
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "remote",
+				"url": "${env.src.spark_connector_url}",
+				"param": {
+					"query" : "${env.src.db_query}",
+					"user": "${env.src.db_usr}",
+					"password": "${env.src.db_pwd}",
+					"service": "${env.src.db_service}",
+					"driver": "${env.src.db_driver}",
+					"jar_filepath": "${env.src.db_jar}"
+				}
+			},
+			{
+				"id_source": "local",
+				"url": "${env.dst.spark_connector_url}",
+				"param": {
+					"query" : "${env.dst.db_query_now}",
+					"user": "${env.dst.db_usr}",
+					"password": "${env.dst.db_pwd}",
+					"service": "${env.dst.db_service}",
+					"driver": "${env.dst.db_driver}",
+					"jar_filepath": "${env.dst.db_jar}"
+				}
+			}
+		],
+		"DataProcess": {
+			"primary_key": "${env.primary_key}",
+			"now" : "${env.now}"
+		},
+		"DataStoring": [
+			{
+				"id_storable": "1",
+				"url": "${env.dst.spark_connector_url}",
+				"param": {
+					"mode" : "overwrite",
+					"table": "${env.dst.db_table_operation}",
+					"schema": "${env.dst.db_schema}",
+					"user": "${env.dst.db_usr}",
+					"password": "${env.dst.db_pwd}",
+					"service": "${env.dst.db_service}",
+					"driver": "${env.dst.db_driver}",
+					"jar_filepath": "${env.dst.db_jar}"
+				}
+			},
+			{
+				"id_storable": "2",
+				"url": "${env.dst.connector_url}",
+				"param": {
+					"query" : "${env.dst.call_procedure}",
+					"user": "${env.dst.db_usr}",
+					"password": "${env.dst.db_pwd}",
+					"service": "${env.dst.db_service}",
+					"driver": "${env.dst.db_driver}",
+					"jar_filepath": "${env.dst.db_jar}"
+				}
+			}
+		]
+	}
+}

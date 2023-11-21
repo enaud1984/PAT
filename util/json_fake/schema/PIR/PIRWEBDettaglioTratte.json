@@ -1,0 +1,53 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pirweb/dettagliotratte.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PIR WEB Dettaglio Tratte",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "IDTratta": {
+                "type": "string",
+                "description": "Codice alfanumerico che identifica la tratta"
+            },
+            "ClasseTratta": {
+                "type": "string",
+                "description": "Classe della tratta"
+            },
+            "LunghezzaTratta": {
+                "type": "string",
+                "description": "Lunghezza della tratta"
+            },
+            "Regione": {
+                "type": "string",
+                "description": "Regione"
+            },
+			"EstensioneTerritoriale": {
+                "type": "number",
+                "description": "Estensione territoriale"
+            },
+            "DoppioBinario": {
+                "type": "boolean",
+                "description": "Presenza doppio binario"
+            },
+            "TipologiaRete": {
+                "type": "string",
+                "description": "Tipologia della trazione eg. Diesel"
+            },
+            "PresenzaCTC": {
+                "type": "boolean",
+                "description": "Linea con CTC"
+            },
+            "PresenzaSCMT": {
+                "type": "boolean",
+                "description": "Linea con SCMT"
+            },
+			"PresenzaERMTS": {
+                "type": "boolean",
+                "description": "Linea con ERMTS"
+            }
+
+        },
+        "required": ["IDTratta"]
+    }
+}

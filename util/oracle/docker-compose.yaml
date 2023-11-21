@@ -1,0 +1,14 @@
+version: '2'
+services:
+  database:
+    image: daggerok/oracle:12.1.0.2-se2
+    environment:
+      ORACLE_SID: ORCLCDB
+      ORACLE_PWD: password
+    ports:
+      - 1521:1521
+      - 8080:8080
+      - 5500:5500
+ 
+#https://www.dbarj.com.br/en/2017/05/oracle-12-1-0-2-cdb-creation-catcdb-sql-returning-ora-22288-or-ora-29548/
+#https://mdesouza.wordpress.com/2021/06/23/error-ora-29548-ora-29548-java-system-class-reported-joxcsys-release-mismatch-12-2-0-1-190716-1-8-in-database-classes-bin-vs-12-2-0-1-0-1-8-in-executable/

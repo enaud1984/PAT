@@ -1,0 +1,12 @@
+{
+  "value_list": [
+    "dummy",
+    {
+      "json_template": "test_%Y_%m_%d_%H_%M_%S",
+      "delta_date": {
+        "days": -1
+      }
+    },
+    "dummy2"
+  ]
+}

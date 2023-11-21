@@ -1,0 +1,26 @@
+installare spark su windows :
+  https://phoenixnap.com/kb/install-spark-on-windows-10
+
+  https://archive.apache.org/dist/spark/spark-2.3.3/spark-2.3.3-bin-hadoop2.7.tgz --> C:\Spark\spark-2.3.3-bin-hadoop2.7\
+  https://github.com/cdarlint/winutils/blob/master/hadoop-2.7.7/bin/winutils.exe --> C:\Hadoop\bin\winutils.exe
+
+  HADOOP_HOME = C:\Hadoop
+  JAVA_HOME = C:\jdk8u322-b06
+  path +=
+    %SPARK_HOME%\bin
+    %HADOOP_HOME%\bin
+  PYSPARK_PYTHON = python
+  PYTHONPATH = C:\Python-3.7.0;%SPARK_HOME%\python;%SPARK_HOME%\python\lib\py4j-0.10.7-src.zip;
+  SPARK_HOME = C:\Spark\spark-2.3.3-bin-hadoop2.7
+
+
+creare cartella c:/temp con i jar che servono (riferimento in conf.json)
+c:/temp/ojdbc8.jar
+altrimenti si lancia spark-submit e si passano da li: spark-submit  --jars C:\temp\ojdbc8.jar --driver-class-path C:\temp\ojdbc8.jar
+
+aggiungere py4j su pycharm:
+  https://stackoverflow.com/questions/34685905/how-to-link-pycharm-with-pyspark
+  FILE->SETTING->Project Structure->Aggiungere: "C:\spark\spark-3.0.3-bin-hadoop2.7\python\lib\py4j-0.10.9-src.zip"
+  per lanciarlo da pycharm
+altrimenti :
+  spark-submit --jars C:\temp\ojdbc8.jar --driver-class-path C:\temp\ojdbc8.jar script.py

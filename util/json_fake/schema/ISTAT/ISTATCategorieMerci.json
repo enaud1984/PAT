@@ -1,0 +1,28 @@
+{
+    "$id": "https://it.almaviva/drivebelt/ISTAT/categoriemerci.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ISTAT Categoriemerci",
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"Categoria merce": {
+				"type": "string",
+				"description": "Materie e oggetti esplosivi,infiammabili,radioattive,comburenti e ecc.."
+			},
+			"Tonn": {
+				"type": "number",
+				"description": "tonnellate"
+			},
+			"Tonn KM": {
+				"type": "number",
+				"description": "tonnellate-km in migliaia"
+			},
+			"Anno di riferimento": {
+				"type": "string",
+				"description": "dati annuali per il Trasporto di categoria di merce"
+			 }
+		},
+		"required": ["Categoria merce"]
+	}
+}

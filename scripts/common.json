@@ -1,0 +1,61 @@
+{
+  "debug": {
+    "write_operations": true,
+    "print": true,
+    "timing_and_profile": false
+  },
+  "app": {
+    "name": "app_name",
+    "code": -1,
+    "exit_code": 0,
+    "validity_minutes": 5,
+    "continue_if_except": false,
+    "stop_and_continue_if_except": false,
+    "createhivetable": false,
+    "readdata_threaded": false,
+    "builddataframe_threaded": false,
+    "writedatatohdfs_threaded": false,
+    "builddataframe_union": false,
+    "builddataframe_union_limit_df_size": -1,
+    "writedatatohive_threaded": false,
+    "writedatatodb_threaded": false,
+    "max_pool_thread": 3,
+    "db_logger": true,
+    "init_spark": true
+  },
+  "db": {
+    "type": "POSTGRES",
+    "host": "10.206.227.231",
+    "port": "5432",
+    "database": "drivebelt",
+    "schema": "ingestion",
+    "driver": "org.postgresql.Driver",
+    "user": "drivebelt",
+    "password": "4lm42021",
+    "jar_filepath": "postgresql-42.2.14.jar",
+    "log_table": "ingestion.log",
+    "log_table_hdfs": "ingestion.log_hdfs",
+    "param": {
+      "url": "jdbc:postgresql://10.206.227.231:5432/drivebelt",
+      "user": "drivebelt",
+      "password": "4lm42021"
+    },
+    "postgres_param": {
+      "user": "drivebelt",
+      "password": "4lm42021",
+      "driver": "org.postgresql.Driver"
+    },
+    "postgres_url": "jdbc:postgresql://10.206.227.231:5432/drivebelt"
+  },
+  "hdfs": {
+    "url": "http://ip-10-206-227-251.eu-west-1.compute.internal:9870",
+    "username": "ec2-user"
+  },
+  "hive_": {
+    "db": "drivebelt",
+    "file_format": "orc"
+  },
+  "log": {
+    "local_folder": "/tmp"
+  }
+}

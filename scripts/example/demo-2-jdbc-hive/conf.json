@@ -1,0 +1,57 @@
+{
+	"app": {
+		"name": "demo-1",
+		"validity_minutes": 1440,
+		"init_spark": false
+	},
+	"db_log": {
+		"url":"postgresql://localhost:5432/postgres_db",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "postgres",
+		"password" : "postgres",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar;c:/temp/hive-jdbc-2.3.3.jar",
+		"spark.executor.extraClassPath": "c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar;c:/temp/hive-jdbc-2.3.3.jar"
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "kafka",
+				"url": "kafka_confluent://10.189.226.4:9092",
+				"param" : {
+					"group_id" : "test-local-05",
+					"auto_offset_reset" : "earliest",
+					"topics" : "misuratoreCebdConnectorV2",
+					"num_messages" : 100,
+					"timeout" : 15
+				}
+			}
+		],
+		"DataProcess": [
+			{}
+		],
+		"DataStoring": [
+			{
+				"id_storable": "hive_jdbc",
+                "table": "table_name",
+                "id_source": "remote",
+                "url": "jdbc:hive2://10.207.237.212:10000/test",
+                "url_prod": "jdbc:hive2://10.189.226.134:10000/anagrafica",
+                "param": {
+					"user" : "analytics",
+					"table" : "test.misuratore_cebd_connector_v2",
+                    "driver": "org.apache.hive.jdbc.HiveDriver",
+                    "jar_filepath": "hive-jdbc-2.3.4.jar"
+                }
+            }
+		]
+	}
+}

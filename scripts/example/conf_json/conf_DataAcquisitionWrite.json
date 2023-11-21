@@ -1,0 +1,15 @@
+{
+	"ingestion": {
+        "DataAcquisitionWrite": [
+			{
+				"_comment" : "fsspec + ftp : il nome del file è lostesso di quello in lettura",
+				"id_source": "hdfs",
+				"url": "ftp://localhost:8021/sem",
+				"param": {
+					"username": "pippo",
+					"password": "pippo"
+				}
+			}
+		]
+	}
+}

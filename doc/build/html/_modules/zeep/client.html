@@ -1,0 +1,358 @@
+
+<!DOCTYPE html>
+
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>zeep.client &#8212; PAT 0.1.0 documentazione</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/translations.js"></script>
+    <link rel="index" title="Indice" href="../../genindex.html" />
+    <link rel="search" title="Cerca" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Codice sorgente per zeep.client</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">zeep.proxy</span> <span class="kn">import</span> <span class="n">AsyncServiceProxy</span><span class="p">,</span> <span class="n">ServiceProxy</span>
+<span class="kn">from</span> <span class="nn">zeep.settings</span> <span class="kn">import</span> <span class="n">Settings</span>
+<span class="kn">from</span> <span class="nn">zeep.transports</span> <span class="kn">import</span> <span class="n">AsyncTransport</span><span class="p">,</span> <span class="n">Transport</span>
+<span class="kn">from</span> <span class="nn">zeep.wsdl</span> <span class="kn">import</span> <span class="n">Document</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Factory</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">types</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">namespace</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">types</span><span class="p">,</span> <span class="s2">&quot;get_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">namespace</span> <span class="ow">in</span> <span class="n">types</span><span class="o">.</span><span class="n">namespaces</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ns</span> <span class="o">=</span> <span class="n">namespace</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ns</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">get_ns_prefix</span><span class="p">(</span><span class="n">namespace</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the complexType or simpleType for the given localname.</span>
+
+<span class="sd">        :rtype: zeep.xsd.ComplexType or zeep.xsd.AnySimpleType</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the complexType or simpleType for the given localname.</span>
+
+<span class="sd">        :rtype: zeep.xsd.ComplexType or zeep.xsd.AnySimpleType</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method</span><span class="p">(</span><span class="s2">&quot;{</span><span class="si">%s</span><span class="s2">}</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ns</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="Client"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client">[documenti]</a><span class="k">class</span> <span class="nc">Client</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;The zeep Client.</span>
+
+<span class="sd">    :param wsdl:</span>
+<span class="sd">    :param wsse:</span>
+<span class="sd">    :param transport: Custom transport class.</span>
+<span class="sd">    :param service_name: The service name for the service binding. Defaults to</span>
+<span class="sd">                         the first service in the WSDL document.</span>
+<span class="sd">    :param port_name: The port name for the default binding. Defaults to the</span>
+<span class="sd">                      first port defined in the service element in the WSDL</span>
+<span class="sd">                      document.</span>
+<span class="sd">    :param plugins: a list of Plugin instances</span>
+<span class="sd">    :param settings: a zeep.Settings() object</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_default_transport</span> <span class="o">=</span> <span class="n">Transport</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">wsdl</span><span class="p">,</span>
+        <span class="n">wsse</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">transport</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">service_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">port_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plugins</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">wsdl</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No URL given for the wsdl&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">settings</span> <span class="o">=</span> <span class="n">settings</span> <span class="ow">or</span> <span class="n">Settings</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">transport</span> <span class="k">if</span> <span class="n">transport</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_transport</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span> <span class="o">=</span> <span class="n">Document</span><span class="p">(</span><span class="n">wsdl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wsse</span> <span class="o">=</span> <span class="n">wsse</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plugins</span> <span class="o">=</span> <span class="n">plugins</span> <span class="k">if</span> <span class="n">plugins</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_service</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_service_name</span> <span class="o">=</span> <span class="n">service_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_port_name</span> <span class="o">=</span> <span class="n">port_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_soapheaders</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">namespaces</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">prefix_map</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">service</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The default ServiceProxy instance</span>
+
+<span class="sd">        :rtype: ServiceProxy</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_service</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_service</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_service</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span>
+            <span class="n">service_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_default_service_name</span><span class="p">,</span> <span class="n">port_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_default_port_name</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_service</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;There is no default service defined. This is usually due to &quot;</span>
+                <span class="s2">&quot;missing wsdl:service definitions in the WSDL&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_service</span>
+
+<div class="viewcode-block" id="Client.bind"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.bind">[documenti]</a>    <span class="k">def</span> <span class="nf">bind</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">service_name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">port_name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new ServiceProxy for the given service_name and port_name.</span>
+
+<span class="sd">        The default ServiceProxy instance (`self.service`) always referes to</span>
+<span class="sd">        the first service/port in the wsdl Document.  Use this when a specific</span>
+<span class="sd">        port is required.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">services</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">service</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_service</span><span class="p">(</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_port</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">port_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ServiceProxy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="o">.</span><span class="n">binding</span><span class="p">,</span> <span class="o">**</span><span class="n">port</span><span class="o">.</span><span class="n">binding_options</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Client.create_service"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.create_service">[documenti]</a>    <span class="k">def</span> <span class="nf">create_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">binding_name</span><span class="p">,</span> <span class="n">address</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new ServiceProxy for the given binding name and address.</span>
+
+<span class="sd">        :param binding_name: The QName of the binding</span>
+<span class="sd">        :param address: The address of the endpoint</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">binding</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">binding_name</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;No binding found with the given QName. Available bindings &quot;</span>
+                <span class="s2">&quot;are: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">bindings</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ServiceProxy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">binding</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="n">address</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Client.create_message"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.create_message">[documenti]</a>    <span class="k">def</span> <span class="nf">create_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">operation_name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create the payload for the given operation.</span>
+
+<span class="sd">        :rtype: lxml.etree._Element</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">envelope</span><span class="p">,</span> <span class="n">http_headers</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">_binding</span><span class="o">.</span><span class="n">_create</span><span class="p">(</span>
+            <span class="n">operation_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="bp">self</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">envelope</span></div>
+
+<div class="viewcode-block" id="Client.type_factory"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.type_factory">[documenti]</a>    <span class="k">def</span> <span class="nf">type_factory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">namespace</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a type factory for the given namespace.</span>
+
+<span class="sd">        Example::</span>
+
+<span class="sd">            factory = client.type_factory(&#39;ns0&#39;)</span>
+<span class="sd">            user = factory.User(name=&#39;John&#39;)</span>
+
+<span class="sd">        :rtype: Factory</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">types</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">namespace</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Client.get_type"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.get_type">[documenti]</a>    <span class="k">def</span> <span class="nf">get_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the type for the given qualified name.</span>
+
+<span class="sd">        :rtype: zeep.xsd.ComplexType or zeep.xsd.AnySimpleType</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">get_type</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Client.get_element"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.get_element">[documenti]</a>    <span class="k">def</span> <span class="nf">get_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the element for the given qualified name.</span>
+
+<span class="sd">        :rtype: zeep.xsd.Element</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">get_element</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Client.set_ns_prefix"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.set_ns_prefix">[documenti]</a>    <span class="k">def</span> <span class="nf">set_ns_prefix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">namespace</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set a shortcut for the given namespace.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">set_ns_prefix</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">namespace</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Client.set_default_soapheaders"><a class="viewcode-back" href="../../ingestion.Connectors.html#ingestion.Connectors.Client.set_default_soapheaders">[documenti]</a>    <span class="k">def</span> <span class="nf">set_default_soapheaders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">headers</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the default soap headers which will be automatically used on</span>
+<span class="sd">        all calls.</span>
+
+<span class="sd">        Note that if you pass custom soapheaders using a list then you will</span>
+<span class="sd">        also need to use that during the operations. Since mixing these use</span>
+<span class="sd">        cases isn&#39;t supported (yet).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default_soapheaders</span> <span class="o">=</span> <span class="n">headers</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">service</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">port</span> <span class="o">=</span> <span class="n">service</span><span class="o">.</span><span class="n">ports</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">port</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Port not found&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">port</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">service</span><span class="o">.</span><span class="n">ports</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">port</span>
+
+    <span class="k">def</span> <span class="nf">_get_service</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">service</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">service</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Service not found&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">service</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">services</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">service</span></div>
+
+
+<span class="k">class</span> <span class="nc">AsyncClient</span><span class="p">(</span><span class="n">Client</span><span class="p">):</span>
+    <span class="n">_default_transport</span> <span class="o">=</span> <span class="n">AsyncTransport</span>
+
+    <span class="k">def</span> <span class="nf">bind</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">service_name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">port_name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new ServiceProxy for the given service_name and port_name.</span>
+
+<span class="sd">        The default ServiceProxy instance (`self.service`) always referes to</span>
+<span class="sd">        the first service/port in the wsdl Document.  Use this when a specific</span>
+<span class="sd">        port is required.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">wsdl</span><span class="o">.</span><span class="n">services</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">service</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_service</span><span class="p">(</span><span class="n">service_name</span><span class="p">)</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_port</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">port_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">AsyncServiceProxy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="o">.</span><span class="n">binding</span><span class="p">,</span> <span class="o">**</span><span class="n">port</span><span class="o">.</span><span class="n">binding_options</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="fm">__aenter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">async</span> <span class="k">def</span> <span class="fm">__aexit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exc_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">traceback</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">CachingClient</span><span class="p">(</span><span class="n">Client</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Shortcut to create a caching client, for the lazy people.</span>
+
+<span class="sd">    This enables the SqliteCache by default in the transport as was the default</span>
+<span class="sd">    in earlier versions of zeep.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="c1"># Don&#39;t use setdefault since we want to lazily init the Transport cls</span>
+        <span class="kn">from</span> <span class="nn">zeep.cache</span> <span class="kn">import</span> <span class="n">SqliteCache</span>
+
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;transport&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;transport&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">Transport</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="n">SqliteCache</span><span class="p">())</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">PAT</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigazione</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Codice del modulo</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Ricerca veloce</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Vai" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Giuseppe Ventura.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

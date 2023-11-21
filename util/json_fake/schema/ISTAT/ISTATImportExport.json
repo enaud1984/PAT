@@ -1,0 +1,36 @@
+{
+    "$id": "https://it.almaviva/drivebelt/ISTAT/importexport.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ISTAT import export",
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"Paese": {
+				"type": "string",
+				"description": " paesi di origine o paesi  di destinazione rispetta l'Italia possono essere paesi UE o Paesi extra-Ue come UK "
+			},
+			"Tonn KM": {
+				"type": "number",
+				"description": "Per il calcolo delle tonnellate-km si considera solo il tragitto avvenuto sul territorio nazionale"
+			},
+			"Tonn": {
+				"type": "number",
+				"description": "peso merci trasportate in tonnellate"
+			},
+		   "Anno di riferimento": {
+				"type": "string",
+				"description": "dati annuali per il Trasporto di merci pericolose "
+			},
+			"Categoria merce": {
+				"type": "string",
+				"description": "Materie e oggetti esplosivi,infiammabili,radioattive,comburenti e ecc.."
+			},
+			"Tipo di trasporto": {
+				"type": "string",
+				"description": "Trasporto Nazionale,Internazionale in entrata e in uscita, Transito"
+			}
+		},
+		"required": ["Paese"]
+	}
+}

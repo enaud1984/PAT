@@ -1,0 +1,32 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pir/dettagliotracce.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "PIR Dettaglio Tracce",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "NumeroTracce": {
+                "type": "number",
+                "description": "Numero di tracce"
+            },
+            "FasciaOraria": {
+                "type": "string",
+                "description": "Fascia Oraria"
+            },
+            "Giorno": {
+                "type": "string",
+                "description": "Giorno"
+            },
+            "Mese": {
+                "type": "string",
+                "description": "Mese"
+            },
+			"Anno": {
+                "type": "number",
+                "description": "Anno"
+            }
+        },
+        "required": ["FasciaOraria", "Giorno", "Mese", "Anno"]
+    }
+}

@@ -1,0 +1,34 @@
+{
+    "$id": "https://it.almaviva/drivebelt/pic/nodiRiferimento.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Anagrafica nodi di riferimento",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "IDNodoDiRiferimento": {
+                "type": "string",
+                "description": "Codice della località"
+            },
+            "Descrizione": {
+                "type": "string",
+                "description": "Descrizione della località"
+            },
+            "Regione": {
+                "type": "string",
+                "description": "Regione"
+            },
+            "DataInizioValidita": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data e ora inizio validità"
+            },
+            "DataFineValidita": {
+                "type": "string",
+				"format": "date-time",
+                "description": "Data e ora inizio validità"
+            }
+		},
+        "required": ["IDNodoDiRiferimento"]
+    }
+}

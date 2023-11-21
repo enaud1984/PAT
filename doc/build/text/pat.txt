@@ -1,0 +1,754 @@
+pat package
+***********
+
+
+Subpackages
+===========
+
+* pat.Connectors package
+
+  * Submodules
+
+  * pat.Connectors.FTPConnector module
+
+  * pat.Connectors.KafkaConnector module
+
+  * pat.Connectors.SoapConnector module
+
+  * Module contents
+
+
+Submodules
+==========
+
+
+pat.chain_of_responsability module
+==================================
+
+class pat.chain_of_responsability.BaseChain(rings_list=None)
+
+      Basi: "object"
+
+   rings_list()
+
+   run()
+
+   validate_config()
+
+class pat.chain_of_responsability.BaseRing(option, id_transaction)
+
+      Basi: "abc.ABC"
+
+   Interfaccia Base dei vari anelli. Si deve reimplementare il metodo
+   run
+
+   abstract run(req)
+
+      Implementazione dell’anello :param req: input dell’anello
+
+      Ritorna:
+         output anello
+
+      Tipo di ritorno:
+         Any
+
+class pat.chain_of_responsability.DataAcquisitionRead(option, id_transaction)
+
+      Basi: "pat.chain_of_responsability.BaseRing"
+
+   Anello per lettura input dati da sorgente
+
+   run(req)
+
+      Implementazione dell’anello :param req: input dell’anello
+
+      Ritorna:
+         output anello
+
+      Tipo di ritorno:
+         Any
+
+   validate_config()
+
+      Parametri:
+         * **option****[****id_source****]** – identificativo sorgente
+
+         * **option****[****url****]** – indirizzo sorgente dati
+
+         * **option****[****param****]** – parametri di connessione
+
+         * **id_transaction** – id della transazione
+
+      Ritorna:
+         True se json corretto altrimenti False String: Descrizione
+         errore
+
+      Tipo di ritorno:
+         Boolean
+
+class pat.chain_of_responsability.DataAcquisitionWrite(option, id_transaction)
+
+      Basi: "pat.chain_of_responsability.BaseRing"
+
+   run(req)
+
+      Implementazione dell’anello :param req: input dell’anello
+
+      Ritorna:
+         output anello
+
+      Tipo di ritorno:
+         Any
+
+   validate_config()
+
+class pat.chain_of_responsability.DataPreProcess(option, id_transaction)
+
+      Basi: "pat.chain_of_responsability.BaseRing"
+
+   pre_process(req)
+
+   run(req)
+
+      Implementazione dell’anello :param req: input dell’anello
+
+      Ritorna:
+         output anello
+
+      Tipo di ritorno:
+         Any
+
+   validate_config()
+
+class pat.chain_of_responsability.DataProcess(option, id_transaction)
+
+      Basi: "pat.chain_of_responsability.BaseRing"
+
+   process(req)
+
+   run(req)
+
+      Implementazione dell’anello :param req: input dell’anello
+
+      Ritorna:
+         output anello
+
+      Tipo di ritorno:
+         Any
+
+   validate_config()
+
+class pat.chain_of_responsability.DataStoring(option, id_transaction)
+
+      Basi: "pat.chain_of_responsability.BaseRing"
+
+   run(req)
+
+      Implementazione dell’anello :param req: input dell’anello
+
+      Ritorna:
+         output anello
+
+      Tipo di ritorno:
+         Any
+
+   validate_config()
+
+class pat.chain_of_responsability.ManagerChain(conf_json=None)
+
+      Basi: "pat.chain_of_responsability.BaseChain"
+
+   end()
+
+   end_ko()
+
+   execute()
+
+   exit_code = 0
+
+   init_var()
+
+   rings_list()
+
+   validate_config()
+
+class pat.chain_of_responsability.MemoryMap
+
+      Basi: "object"
+
+   static get(id_transaction, key)
+
+   static get_id_transaction(id_transaction)
+
+   static hget(*args, def_val=None)
+
+      Ritorna valore alla chiave corrispondente
+
+      Parametri:
+         **args** – lista di chiavi ricorsive [arg1,arg2,arg3,…]
+
+      Ritorna:
+         valore di map[arg1][arg2][arg…]
+
+      Tipo di ritorno:
+         Any
+
+      Eccezione:
+         ritorna def_val
+
+   static hset(*args, overwrite=True)
+
+      Setta valore alla chiave corrispondente
+
+      Parametri:
+         **args** – lista di chiavi ricorsive [arg1,arg2,arg3,…]
+
+   map_ = {}
+
+      Mappa condivisa tra tutti gli anelli
+
+   static set(id_transaction, key, value)
+
+   static set_id_transaction(id_transaction)
+
+
+pat.class_tool module
+=====================
+
+class pat.class_tool.Base
+
+      Basi: "object"
+
+   _key = None _key2 = None def __init__(self):
+
+      key = id(self) key2 = id(self)
+
+   def key(self, >>*<<args):
+      return self._return(self, «_key», >>*<<args)
+
+   def key2(self, >>*<<args):
+      return self._return(self, «_key2», >>*<<args)
+
+class pat.class_tool.BaseResponse
+
+      Basi: "pat.class_tool.Base"
+
+   exit_code(*args)
+
+class pat.class_tool.ConnectorRead
+
+      Basi: "pat.class_tool.Base"
+
+   data(*args)
+
+   filename(*args)
+
+class pat.class_tool.DbmsType(value)
+
+      Basi: "str", "enum.Enum"
+
+   An enumeration.
+
+   IMPALA = 'IMPALA'
+
+   ORACLE = 'ORACLE'
+
+   POSTGRES = 'POSTGRES'
+
+class pat.class_tool.Source
+
+      Basi: "pat.class_tool.Base"
+
+   data(*args)
+
+   filename(*args)
+
+   filepath(*args)
+
+   id_source(*args)
+
+class pat.class_tool.Storable
+
+      Basi: "pat.class_tool.Base"
+
+   data(*args)
+
+   id_source(*args)
+
+   id_storable(*args)
+
+
+pat.connector module
+====================
+
+class pat.connector.Connector
+
+      Basi: "object"
+
+   connector_map = {'jdbc:impala': <class 'pat.connector.JdbcConnector'>, 'jdbc:oracle': <class 'pat.connector.JdbcConnector'>, 'jdbc:postgresql': <class 'pat.connector.JdbcConnector'>, 'spark:hive:': <class 'pat.connector.SparkHiveConnector'>, 'spark:jdbc:impala': <class 'pat.connector.SparkJdbcConnector'>, 'spark:jdbc:oracle': <class 'pat.connector.SparkJdbcConnector'>, 'spark:jdbc:postgresql': <class 'pat.connector.SparkJdbcConnector'>}
+
+   delete(url, param, spark=None)
+
+   read(url, param, spark=None)
+
+   write(url, param, data, spark=None)
+
+class pat.connector.ConnectorBase
+
+      Basi: "object"
+
+   get_connection_param(url, param, protocol)
+
+   get_connection_param_old(url, param, protocol)
+
+   read(url, param, spark=None)
+
+   write(url, param, data, spark=None)
+
+class pat.connector.FileConnector
+
+      Basi: "pat.connector.ConnectorBase"
+
+   delete(url, param, spark=None)
+
+   get_list_file_name(protocol, url, param)
+
+   get_list_file_name_(protocol, url, param)
+
+   read(url, param, spark=None)
+
+   write(url, param, data, spark=None)
+
+class pat.connector.JdbcConnector
+
+      Basi: "pat.connector.ConnectorBase"
+
+   read(url, param, spark=None) -> List[tuple]
+
+   write(url, param, data, spark=None)
+
+class pat.connector.SparkHiveConnector
+
+      Basi: "pat.connector.ConnectorBase"
+
+   read(url, param, spark=None)
+
+   write(url, param, data, spark=None)
+
+class pat.connector.SparkJdbcConnector
+
+      Basi: "pat.connector.ConnectorBase"
+
+   read(url, param, spark=None)
+
+   write(url, param, data, spark=None)
+
+
+pat.converter module
+====================
+
+class pat.converter.CsvConverter(schema)
+
+      Basi: "object"
+
+   toList(data_, header=True, csv_header=True)
+
+exception pat.converter.JError
+
+      Basi: "Exception"
+
+class pat.converter.JKey(key_, json_type=None)
+
+      Basi: "object"
+
+   data_type: None
+
+   data_type_detail: None
+
+   full_name: None
+
+   isMandatory: False
+
+   isUnion: False
+
+   isValid()
+
+   json_type: None
+
+   key_name: None
+
+   new_name: None
+
+   real_name: None
+
+class pat.converter.JsonConverter(schema)
+
+      Basi: "object"
+
+   J_NULL_VALUE = None
+
+   J_UNION_DELIMITER = '|'
+
+   getHeader(normalize=False)
+
+   getHeaderDetail(json_schema, key=None)
+
+   getSchema(iterable)
+
+   getSchemaDetail(json_schema, key=None)
+
+   getSchema_(iterable)
+
+   getSparkSchema(json_schema=None, key=None)
+
+   header_detail = {}
+
+   schema = None
+
+   schema_spark = None
+
+      print(«self.init_schema == {}».format(self.init_schema))
+      print(«self.schema == {}».format(self.schema))
+      print(«self.header_detail == {}».format(self.header_detail))
+      print(«self.shema_detail == {}».format(self.shema_detail))
+
+   shema_detail = {}
+
+   toCsv(data, quoteFields='smart', lineSeparator='\r\n', header=True)
+
+   toDataFrame(data, sc)
+
+   toDataFrameFromList(list_, sc)
+
+   toJson(data, header=True)
+
+   toList(data, header=True)
+
+class pat.converter.JsonUtils
+
+      Basi: "object"
+
+   obj : oggetto da trasformare jKey : info sull’oggetto casttype :
+
+      CAST_ALL_STRING : trasforma sempre l’oggetto in stringa
+      CAST_DATA_TYPE : trasforma nell’oggetto definito nel jKey
+      CAST_CSV : trasforma tutto in stringa tranne i numerici
+
+   static castObj(obj, jKey, casttype='CAST_ALL_STRING')
+
+   static dataToStr(csvData, separator=',', quoteFields='smart', lineSeparator='\r\n')
+
+   static getCsvObj(obj)
+
+   static loads(content)
+
+
+pat.db_utility module
+=====================
+
+class pat.db_utility.Db(driver, url, user, password, jar_filepath, schema=None, sql_builder=<ingestion.utility.SqlBuilder object>, service=None)
+
+      Basi: "object"
+
+   insert(schema=None, table=None, columns=None, tuples=None)
+
+   select(schema=None, table=None, columns=None, where=None)
+
+   update(schema=None, table=None, columns=None, tuples=None, where=None)
+
+class pat.db_utility.DbCxOracle(driver, url, user, password, jar_filepath, schema=None, sql_builder=<ingestion.utility.SqlBuilder object>, service=None)
+
+      Basi: "pat.db_utility.Db"
+
+   check_table_exists(*args, **kwargs)
+
+   execute_many(*args, **kwargs)
+
+   execute_multiple_query(*args, **kwargs)
+
+   execute_procedure(*args, **kwargs)
+
+   execute_query(*args, **kwargs)
+
+   run_query()
+
+class pat.db_utility.DbJaydebeapi(driver, url, user, password, jar_filepath, schema=None, sql_builder=<ingestion.utility.SqlBuilder object>, service=None)
+
+      Basi: "pat.db_utility.Db"
+
+   castTimestampValues(list_tuples)
+
+   check_table_exists(*args, **kwargs)
+
+      if «jdbc:oracle:» in self.url:
+         argsDb = {“user”: self.user, “password”: self.password}
+
+      elif «jdbc:postgresql:» in self.url:
+         argsDb = [self.user, self.password]
+
+      elif «jdbc:impala:» in self.url:
+         argsDb = []
+
+   execute_many(*args, **kwargs)
+
+      if «jdbc:oracle:» in self.url:
+         argsDb = {“user”: self.user, “password”: self.password}
+
+      elif «jdbc:postgresql:» in self.url:
+         argsDb = [self.user, self.password]
+
+      elif «jdbc:impala:» in self.url:
+         argsDb = []
+
+   execute_multiple_query(*args, **kwargs)
+
+      if «jdbc:oracle:» in self.url:
+         argsDb = {“user”: self.user, “password”: self.password}
+
+      elif «jdbc:postgresql:» in self.url:
+         argsDb = [self.user, self.password]
+
+      elif «jdbc:impala:» in self.url:
+         argsDb = []
+
+   execute_procedure(*args, **kwargs)
+
+      if «jdbc:oracle:» in self.url:
+         argsDb = {“user”: self.user, “password”: self.password}
+
+      elif «jdbc:postgresql:» in self.url:
+         argsDb = [self.user, self.password]
+
+      elif «jdbc:impala:» in self.url:
+         argsDb = []
+
+   execute_query(*args, **kwargs)
+
+      if «jdbc:oracle:» in self.url:
+         argsDb = {“user”: self.user, “password”: self.password}
+
+      elif «jdbc:postgresql:» in self.url:
+         argsDb = [self.user, self.password]
+
+      elif «jdbc:impala:» in self.url:
+         argsDb = []
+
+   initJVM(jar_filepath)
+
+   initJVM_old(jar_filepath)
+
+   run_query()
+
+class pat.db_utility.DbLog(cfg)
+
+      Basi: "pat.db_utility.DbJaydebeapi"
+
+   createLogTableHdfs()
+
+   create_log_table()
+
+   dropLogTable()
+
+   get_param(p1, p2, ignore_null=False)
+
+   log_exit_code_insert(type=None, message=None)
+
+   log_exit_code_select(exit_code=None, type=None, message=None)
+
+   log_exit_code_update(exit_code=None, type=None, message=None)
+
+   log_file_insert(run_id=None, filename=None, filepath=None, exit_code=None)
+
+   log_file_select(run_id=None, filename=None, filepath=None, exit_code=None)
+
+   log_file_update(run_id=None, filename=None, filepath=None, exit_code=None)
+
+   log_insert(run_id=None, script=None, description=None, execution_time=None, success=1, start_time=None, end_time=None, expiration_date=None, exit_code=None, app_id=None, log_path=None)
+
+   log_operation_insert(run_id=None, operation=None, start_time=None, end_time=None, exit_code=None)
+
+   log_operation_select(run_id=None, operation=None, start_time=None, end_time=None, exit_code=None)
+
+   log_operation_update(run_id=None, operation=None, start_time=None, end_time=None, exit_code=None)
+
+   log_select(run_id=None, script=None, description=None, execution_time=None, success=1, start_time=None, end_time=None, expiration_date=None, exit_code=None, app_id=None, log_path=None)
+
+   log_update(run_id=None, script=None, description=None, execution_time=None, success=1, start_time=None, end_time=None, expiration_date=None, exit_code=None, app_id=None, log_path=None)
+
+   truncateLogTable()
+
+
+pat.env module
+==============
+
+pat.env.get_log_handle_exception()
+
+pat.env.get_log_path(id)
+
+
+pat.utility module
+==================
+
+class pat.utility.Common
+
+      Basi: "object"
+
+   static get_filename_from_url(url, level=None, folder=None)
+
+   static get_protocol(url)
+
+   static replace_time(value, timestamp=None)
+
+   static round_date(date, minutes_to_round=10)
+
+   static to_list(obj, iterate=False)
+
+class pat.utility.FieldControl
+
+      Basi: "object"
+
+   checkDate(value, field_name, fuzzy=False, required=False, date_format='yyyy-MM-dd HH24:mi:ss')
+
+   checkNumber(value, field_name, fuzzy=False, required=False)
+
+   checkRequired(value, field_name)
+
+   checkString(value, field_name, fuzzy=False, required=False)
+
+   checkValuesInList(value, field_name, valueList, required=False)
+
+class pat.utility.ImpalaSqlBuilder
+
+      Basi: "pat.utility.SqlBuilder"
+
+   to_timestamp(dt)
+
+class pat.utility.Json
+
+      Basi: "object"
+
+   static check_key(json: dict, key: str)
+
+   static get_value(data, *args, defval=None)
+
+   static get_value_eval(data, *args, defval=None)
+
+   static is_json(my_json)
+
+   static loads(*json_array)
+
+   static loadsWithTemplate(json_file)
+
+   static merge(dict1, dict2)
+
+      merge ricorsivo di due dict, sovrascrive i valori in “conflitto”
+
+class pat.utility.Kafka(topicName, consumerName, consumerInstance)
+
+      Basi: "object"
+
+   CONSUMER_INSTANCE_NOT_FOUND = 40403
+
+   createConsumer()
+
+   deleteConsumer()
+
+   initParam()
+
+   readTopic()
+
+   subscribe()
+
+class pat.utility.Logger
+
+      Basi: "object"
+
+   static init(id, time_precision='second', log_level='INFO')
+
+exception pat.utility.PatValidationError
+
+      Basi: "Exception"
+
+class pat.utility.PostgresSqlBuilder
+
+      Basi: "pat.utility.SqlBuilder"
+
+   to_timestamp(dt)
+
+class pat.utility.Spark(APP_NAME, configDict)
+
+      Basi: "object"
+
+   add_df_hash_key(df, hive_key_list)
+
+   close()
+
+   get_application_id()
+
+   get_df_from_csv(data, header=False)
+
+   get_df_from_query(query, oracle_param=None)
+
+      oracle_param di esempio oracle_param={«url»:»127.0.0.1:1521»,
+      «user»:»utente_login», «password»:»utente_password»} per oracle
+      query puo” essere o la tabella o la query con l’alias finale
+      esempio:
+
+            (select * from te_viaggi where ROWNUM <2) te_viaggi
+
+         e senza campi geometrici nella select
+         oracle.jdbc.driver.OracleDriver .option(«driver»,
+         «oracle.jdbc.driver.OracleDriver») “ .option(«driver»,
+         «org.postgresql.Driver») “
+
+   get_df_lower_column(df: pyspark.sql.dataframe.DataFrame)
+
+   get_df_upper_column(df: pyspark.sql.dataframe.DataFrame)
+
+   get_hive_context()
+
+   get_spark()
+
+   get_spark_context()
+
+   get_sql_context()
+
+   hiveContext = None
+
+   spark = None
+
+   sparkContext = None
+
+class pat.utility.SqlBuilder
+
+      Basi: "object"
+
+   getInsertString(table, columns)
+
+   to_insert(table, columns, tuples=None)
+
+   to_select(table, columns, where=None, ignore_null=False)
+
+   to_timestamp(dt)
+
+   to_update(table, columns, tuples, where=None, ignore_null=False)
+
+   to_value(v)
+
+   to_value2(k, v, is_where=False)
+
+   to_value_(v)
+
+class pat.utility.TimingAndProfile(enable_profile=False)
+
+      Basi: "object"
+
+   logger = <Logger ingestion (WARNING)>
+
+pat.utility.encryptStr(value)
+
+pat.utility.handle_exception(exc_type, exc_value, exc_traceback)
+
+
+Module contents
+===============

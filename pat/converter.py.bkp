@@ -1,0 +1,632 @@
+import json
+import copy
+from datetime import datetime
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType, DecimalType
+
+# lista dei tipi gestiti
+data_types = [
+    "array",
+    "binary",
+    "byte",
+    "date",
+    "decimal",
+    "double",
+    "float",
+    "int",
+    "long",
+    "short",
+    "string",
+    "timestamp",
+    "datetime"
+]
+data_type_default = "string"  # tipo di dfault se non inserito nello schema
+
+J_NODE = "NODE"
+J_LEAF = "LEAF"
+J_NODE_ARRAY = "NODE_ARRAY"
+J_LEAF_ARRAY = "LEAF_ARRAY"
+
+CAST_ALL_STRING = "CAST_ALL_STRING"
+CAST_DATA_TYPE = "CAST_DATA_TYPE"
+CAST_CSV = "CAST_CSV"
+
+
+class JError(Exception):
+    pass
+
+
+# input key_ :
+# chiave dello schema nel formato : *+JSON_NAME#NEW_NAME(type|info_type)
+# * --> opzionale, implica che il campo e' obbligatorio
+# + --> opzionale, unisce i contenuti degli array
+# JSON_NAME --> obbligatorio, nome della campo json
+# NEW_NAME --> opzionale, nome nuovo che viene inseriti nell' header , se non inserito viene utilizzato JSON_NAME
+# type --> opzionale, tipo del dato (sono considerati valisi solo quelli contenuti in data_types)
+# info_type --> da definire
+
+# input json_type :
+# L : list
+# D : dict
+# V : value
+
+class JKey:
+    full_name: None
+    real_name: None
+    new_name: None
+    key_name: None
+    json_type: None
+    data_type: None
+    data_type_detail: None
+    isMandatory: False
+    isUnion: False
+
+    def __init__(self, key_, json_type=None):
+        self.json_type = json_type
+        self.data_type_detail = None
+        self.isMandatory = False
+        self.isUnion = False
+        self.isForceDefault = False
+        self.full_name = key_
+        self.real_name = None
+        self.new_name = None
+        self.data_type = None
+        if key_ is not None:
+            key_split = key_.split("/")
+            key = key_split[-1]
+
+            i_open = key.find("(")  # get the position of delimiter [
+            i_close = key.find(")")  # get the position of delimiter ]
+
+            if i_open > 0 and i_close > 0:
+                d_type = key[i_open + 1:i_close]
+                d_type_detail = None
+                key = key.replace("(" + d_type + ")", '')
+
+                d_type_split = d_type.split("|")
+                if len(d_type_split) == 2:
+                    d_type = d_type_split[0]
+                    d_type_detail = d_type_split[1]
+
+                if not d_type in data_types:
+                    raise ValueError('field type is not valid : {}'.format(d_type))
+                self.data_type = d_type
+                self.data_type_detail = d_type_detail
+            else:
+                self.data_type = data_type_default
+
+            while True:
+                first_ = key[0]
+                if first_ == "*":
+                    self.isMandatory = True
+                    key = key[1:]
+                elif first_ == "+":
+                    self.isUnion = True
+                    key = key[1:]
+                elif first_ == "!":
+                    self.isForceDefault = True
+                    key = key[1:]
+                else:
+                    break
+
+            # remove
+            itemSplit = key.split("#")
+            if len(itemSplit) == 1:
+                self.real_name = itemSplit[0]
+                self.new_name = itemSplit[0]
+            elif len(itemSplit) == 2:
+                self.real_name = itemSplit[0]
+                self.new_name = itemSplit[1]
+
+            key_split[-1] = self.real_name
+            self.key_name = "/".join(key_split)
+
+    def isValid(self):
+        if self.isUnion and self.json_type != J_NODE_ARRAY and self.json_type != J_LEAF_ARRAY:
+            raise JError("Use tag + only for list [] : {} is a {}".format(self.full_name, self.json_type))
+
+    def __repr__(self):
+        return "full_name:% s real_name:% s new_name:% s key_name:% s json_type:% s data_type:% s data_type_detail:% s isMandatory:% s isUnion:% s" % (
+            self.full_name, self.real_name, self.new_name, self.key_name, self.json_type, self.data_type,
+            self.data_type_detail, self.isMandatory, self.isUnion)
+
+    def __str__(self):
+        return "full_name:% s real_name:% s new_name:% s key_name:% s json_type:% s data_type:% s data_type_detail:% s isMandatory:% s isUnion:% s" % (
+            self.full_name, self.real_name, self.new_name, self.key_name, self.json_type, self.data_type,
+            self.data_type_detail, self.isMandatory, self.isUnion)
+
+
+class JsonUtils:
+    """
+    obj : oggetto da trasformare
+    jKey : info sull'oggetto
+    casttype :
+        CAST_ALL_STRING : trasforma sempre l'oggetto in stringa
+        CAST_DATA_TYPE : trasforma nell'oggetto definito nel jKey
+        CAST_CSV : trasforma tutto in stringa tranne i numerici
+    """
+
+    @staticmethod
+    def castObj(obj, jKey, casttype=CAST_ALL_STRING):
+        try:
+            if obj is None:
+                if casttype == CAST_ALL_STRING:
+                    return "NULL"
+                return None
+
+            if casttype == CAST_ALL_STRING:
+                return str(obj)
+            elif casttype == CAST_DATA_TYPE:
+                if jKey.data_type == "int":
+                    return int(obj)
+                elif jKey.data_type == "long":
+                    return int(obj)
+                elif jKey.data_type == "double":
+                    return float(obj)
+                elif jKey.data_type == "bytes":
+                    return bytes(obj)
+                elif jKey.data_type == "float":
+                    return float(obj)
+
+                elif jKey.data_type == "timestamp":
+                    if jKey.data_type_detail is None:
+                        return datetime.strptime(obj, '%Y-%m-%dT%H:%M:%S+01:00')
+                    else:
+                        return datetime.strptime(obj, jKey.data_type_detail)
+                else:
+                    return str(obj)
+            elif casttype == CAST_CSV:
+                if jKey.data_type == "int":
+                    return int(obj)
+                elif jKey.data_type == "long":
+                    return int(obj)
+                elif jKey.data_type == "double":
+                    return float(obj)
+                elif jKey.data_type == "float":
+                    return float(obj)
+                else:
+                    return str(obj)
+        except Exception as e:
+            print(f"obj == {obj} - data_type = {jKey.data_type}")
+            print("ERROR", e)
+            raise e
+
+    @staticmethod
+    def loads(content):
+        if not isinstance(content, dict):
+            return json.loads(content)
+        return content
+
+    @staticmethod
+    def getCsvObj(obj):
+        if obj is None:
+            obj = "NULL"
+        elif isinstance(obj, str):
+            obj = obj.replace('"', '""')
+            obj = '"' + obj + '"'
+        else:
+            obj = str(obj)
+        return obj
+
+    ################################################
+    #######      Static Public Methods       #######
+    ################################################
+    @staticmethod
+    def dataToStr(csvData, separator=',', quoteFields="smart", lineSeparator='\r\n'):
+        if not isinstance(csvData, list) or not isinstance(csvData[0], list):
+            raise ValueError(
+                'csvData is not a list-of-lists. dataToStr is meant to convert the return of "extractData" method to csv data.')
+
+        lines = [separator.join([JsonUtils.getCsvObj(item) for item in items]) for items in csvData]
+        # lines = [separator.join(['"%s"' % (str(item).replace('"', '""'),) for item in items]) for items in csvData]
+
+        return lineSeparator.join(lines)
+
+
+class JsonConverter:
+    schema = None
+    schema_spark = None
+    shema_detail = {}
+    header_detail = {}
+
+    J_UNION_DELIMITER = "|"
+    J_NULL_VALUE = None  # il valore che assume il campo Stringa null
+
+    # J_NULL_VALUE = 'NULL'
+
+    def __init__(self, schema):
+        # Schema iniziale
+        self.init_schema = schema
+        self.shema_detail = self.getSchemaDetail(copy.deepcopy(schema))
+        # self.setSchemaDetail(copy.deepcopy(schema))
+        self.schema = self.getSchema(copy.deepcopy(schema))
+        self.header_detail = self.getHeaderDetail(copy.deepcopy(self.schema))
+        self.schema_spark = self.getSparkSchema()
+
+        '''
+        print("self.init_schema == {}".format(self.init_schema))
+        print("self.schema == {}".format(self.schema))
+        print("self.header_detail == {}".format(self.header_detail))
+        print("self.shema_detail == {}".format(self.shema_detail))
+        '''
+
+    def getSchemaDetail(self, json_schema, key=None):
+        shema_detail_local = {}
+        if key is not None:
+            jKey = JKey(key)
+            shema_detail_local[jKey.key_name] = jKey
+            key = jKey.key_name
+        else:
+            jKey = JKey(None)
+            jKey.key_name = ""
+            key = ""
+
+        if type(json_schema) is dict:
+            jKey.json_type = J_NODE
+            shema_detail_local[jKey.key_name] = jKey
+            for name, v in sorted(json_schema.items()):
+                shema_detail_in = self.getSchemaDetail(json_schema[name], key + "/" + name)
+                shema_detail_local.update(shema_detail_in)
+        elif type(json_schema) is list:
+            jKey.json_type = J_NODE_ARRAY
+            shema_detail_local[jKey.key_name] = jKey
+            for name in json_schema:
+                shema_detail_in = self.getSchemaDetail(json_schema[0], key + "/" + "@")
+                shema_detail_local.update(shema_detail_in)
+                if name is None:
+                    jKey.json_type = J_LEAF_ARRAY
+                    shema_detail_local[jKey.key_name] = jKey
+        else:
+            jKey.json_type = J_LEAF
+            shema_detail_local[jKey.key_name] = jKey
+
+        jKey.isValid()
+        return shema_detail_local
+
+    '''
+    def setSchemaDetail(self,json_schema,key=None):
+        if key is not None :
+            jKey = JKey(key)
+            self.shema_detail[jKey.key_name]=jKey
+            key = jKey.key_name
+        else :
+            jKey = JKey(None)
+            jKey.key_name = ""
+            key = ""
+
+        if type(json_schema) is dict:
+            jKey.json_type = J_NODE
+            self.shema_detail[jKey.key_name]=jKey
+            for name, v in sorted(json_schema.items()):
+                self.setSchemaDetail(json_schema[name],key + "/" + name)
+        elif type(json_schema) is list:
+            jKey.json_type = J_NODE_ARRAY
+            self.shema_detail[jKey.key_name]=jKey
+            for name in json_schema:
+                self.setSchemaDetail(json_schema[0],key + "/" + "@")
+                if name is None :
+                    jKey.json_type = J_LEAF_ARRAY
+                    self.shema_detail[jKey.key_name]=jKey
+        else :
+            jKey.json_type = J_LEAF
+            self.shema_detail[jKey.key_name] = jKey
+
+        jKey.isValid()
+    '''
+
+    def getHeaderDetail(self, json_schema, key=None):
+        """
+        Restituisce una riga con l'header estratto dallo schema
+        """
+        if key is not None:
+            jKey = self.shema_detail[key]
+            # jKey = JKey(key)
+            key = jKey.key_name
+        else:
+            key = ""
+            jKey = JKey(None)
+
+        current_line = []
+        if type(json_schema) is dict:
+            # for name in json_schema:
+            for name, v in sorted(json_schema.items()):
+                inner_line = self.getHeaderDetail(json_schema[name], key + "/" + name)
+                current_line = current_line + inner_line
+        elif type(json_schema) is list:
+            i = 0
+            # for name in sorted(json_schema) :
+            for name in json_schema:
+                inner_line = self.getHeaderDetail(json_schema[0], key + "/" + "@")
+                if name is None:
+                    inner_line = [jKey]
+
+                current_line = inner_line
+        else:
+            current_line = [jKey]
+        return current_line
+
+    def getHeader(self, normalize=False):
+        """
+        Restituisce una lista con gli header
+        """
+        header = []
+        for hd in self.header_detail:
+            if normalize:
+                normalized = hd.new_name
+                normalized = normalized.replace(" ", "_")
+                normalized = normalized.lower()
+                header.append(normalized)
+            else:
+                header.append(hd.new_name)
+        return header
+
+    def getSchema(self, iterable):
+        """
+        Crea un nuovo schema con le chiavi pulite dai tag di detail
+        """
+        if type(iterable) is dict:
+            new_ = {}
+            for key in iterable.keys():
+                jKey = JKey(key)
+                new_name = jKey.real_name
+                if type(iterable[key]) is dict or type(iterable[key]) is list:
+                    new_[new_name] = self.getSchema(iterable[key])
+                else:
+                    new_[new_name] = iterable[key]
+        elif type(iterable) is list:
+            new_ = []
+            for item in iterable:
+                new_.append(self.getSchema(item))
+        else:
+            new_ = iterable
+        return new_
+
+    def getSchema_(self, iterable):
+        """
+        Crea un nuovo schema con le chiavi pulite dai tag di detail
+        """
+        if type(iterable) is dict:
+            for key in iterable.keys():
+                jKey = JKey(key)
+                # new_name = key.lower()
+                new_name = jKey.real_name
+                iterable[new_name] = iterable.pop(key)
+                if type(iterable[new_name]) is dict or type(iterable[new_name]) is list:
+                    iterable[new_name] = self.getSchema(iterable[new_name])
+        elif type(iterable) is list:
+            for i in range(len(iterable)):
+                item = self.getSchema(iterable[i])
+                iterable[i] = item
+        return iterable
+
+    # cast_obj = True.  Lista disomogenea : nella lista degli oggetti restituiti ogni oggetto avra' il tipo identificato nello schema (int) (double) ecc
+    # cast_obj = False. Lista omogenea : nella lista degli oggetti restituiti ogni oggetto sara' di tipo String
+    def __getData(self, key, json_obj, json_schema, casttype):
+        data_list = []
+        if type(json_schema) is dict:
+            # for name in json_schema:
+            for name, v in sorted(json_schema.items()):
+                jKey = self.shema_detail[key + "/" + name]
+                if (name not in json_obj) or (json_obj[name] is None):
+                    if jKey.isMandatory:
+                        raise JError("Error_1 : {} is mandatory".format(jKey.key_name))
+                    else:
+                        # valore di default inserito nel json_schema
+                        json_obj[name] = json_schema[name]
+
+                if jKey.isForceDefault:
+                    # valore di default inserito nel json_schema
+                    json_obj[name] = json_schema[name]
+
+                inner_list = self.__getData(key + "/" + name, json_obj[name], json_schema[name], casttype)
+                if len(data_list) == 0:
+                    data_list = inner_list
+                else:
+                    lines_new = []
+                    for data_list_obj in data_list:
+                        for inner_list_obj in inner_list:
+                            lines_new.append(data_list_obj + inner_list_obj)
+                    data_list = lines_new
+        elif type(json_schema) is list:
+            i = 0
+            jKey = self.shema_detail[key]
+            for a in json_obj:
+                inner_list = self.__getData(key + "/@", a, json_schema[0], casttype)
+                if len(data_list) == 0:
+                    data_list = inner_list
+                else:
+                    for inner_list_obj in inner_list:
+                        if jKey.isUnion:
+                            data_list[0] = [str(data_list[0][0]) + self.J_UNION_DELIMITER + str(inner_list_obj[0])]
+                        else:
+                            data_list.append(inner_list_obj)
+        else:
+            jKey = self.shema_detail[key]
+            if json_obj is None and jKey.isMandatory:
+                raise JError("Error_2 : {} is mandatory".format(jKey.key_name))
+            else:
+                obj = JsonUtils.castObj(json_obj, jKey, casttype)
+                data_list.append([obj])
+
+        return data_list
+
+    def __getDataJson(self, key, json_obj, json_schema, casttype):
+        data_json = {}
+        if type(json_schema) is dict:
+            # for name in json_schema:
+            for name, v in sorted(json_schema.items()):
+                jKey = self.shema_detail[key + "/" + name]
+                if (name not in json_obj) or (json_obj[name] is None):
+                    if jKey.isMandatory:
+                        raise JError("Error_1 : {} is mandatory".format(jKey.key_name))
+                    else:
+                        # valore di default inserito nel json_schema
+                        json_obj[name] = json_schema[name]
+
+                if jKey.isForceDefault:
+                    # valore di default inserito nel json_schema
+                    data_json[name] = json_schema[name]
+                else:
+                    data_json[name] = self.__getDataJson(key + "/" + name, json_obj[name], json_schema[name], casttype)
+
+        elif type(json_schema) is list:
+            i = 0
+            data_json = []
+            for a in json_obj:
+                data_json_inner = self.__getDataJson(key + "/@", a, json_schema[0], casttype)
+                data_json.append(data_json_inner)
+        else:
+            jKey = self.shema_detail[key]
+            if json_obj is None and jKey.isMandatory:
+                raise JError("Error_2 : {} is mandatory".format(jKey.key_name))
+            else:
+                obj = JsonUtils.castObj(json_obj, jKey, casttype)
+                data_json = obj
+
+        return data_json
+
+    def getSparkSchema(self, json_schema=None, key=None):
+        #print(f"key == {key} - json_schema = {json_schema}")
+        """
+        restituisce una riga con l'header estratto dallo schema
+        """
+        if key is not None:
+            jKey = self.shema_detail[key]
+            key = jKey.key_name
+        else:
+            json_schema = self.schema
+            key = ""
+            jKey = JKey(None)
+
+        if type(json_schema) is dict:
+            fields = []
+            for name, v in sorted(json_schema.items()):
+                spark_ = self.getSparkSchema(json_schema[name], key + "/" + name)
+                if type(spark_) is StructType:
+                    for i in range(len(spark_)):
+                        fields.append(spark_[i])
+                else :
+                    fields.append(spark_)
+            return StructType(fields)
+        elif type(json_schema) is list:
+            # TODO
+            return self.getSparkSchema(json_schema[0], key + "/" + "@")
+        else:
+            if jKey.data_type == 'int':
+                return StructField(jKey.new_name, IntegerType(), True)
+            elif jKey.data_type == 'double':
+                return StructField(jKey.new_name, DoubleType(), True)
+            elif jKey.data_type == 'timestamp':
+                return StructField(jKey.new_name, TimestampType(), True)
+            elif jKey.data_type == 'decimal':
+                return StructField(jKey.new_name, DecimalType(), True)
+            else:
+                return StructField(jKey.new_name, StringType(), True)
+
+        return current_line
+
+    def toJson(self, data, header=True):
+        obj = JsonUtils.loads(data)
+        return self.__getDataJson("", obj, self.schema, CAST_DATA_TYPE)
+
+    def toList(self, data, header=True):
+        obj = JsonUtils.loads(data)
+
+        list = self.__getData("", obj, self.schema, CAST_DATA_TYPE)
+        if header:
+            list.insert(0, self.getHeader())
+        return list
+
+    def toCsv(self, data, quoteFields="smart", lineSeparator='\r\n', header=True):
+        obj = JsonUtils.loads(data)
+        list = self.__getData("", obj, self.schema, CAST_CSV)
+        if header:
+            list.insert(0, self.getHeader())
+
+        return JsonUtils.dataToStr(list, separator=',', quoteFields=quoteFields, lineSeparator=lineSeparator)
+
+    def toDataFrame(self, data, sc):
+        obj = JsonUtils.loads(data)
+        list_ = self.__getData("", obj, self.schema, CAST_ALL_STRING)
+        df = sc.createDataFrame(data=list_, schema=self.schema_spark)
+
+        '''
+        f_list = []
+        for hd in self.header_detail:
+            f_list.append(hd.new_name)
+        R = Row(*f_list)
+        R = Row(*self.getHeader())
+        '''
+
+        '''
+        list.insert(0, self.getHeader(normalize=True))
+        R = Row(*list.pop(0))
+        df = sc.parallelize([R(*r) for r in list]).toDF()
+        
+        for hd in self.header_detail:
+            #if hd.data_type is not 'string' :
+            if type(hd.data_type) is not str :
+                df = df.withColumn(hd.new_name, df[hd.new_name].cast(hd.data_type))
+        '''
+
+        return df
+
+    def toDataFrameFromList(self, list_, sc):
+        df = sc.createDataFrame(data=list_, schema=self.schema_spark)
+        for hd in self.header_detail:
+            # if hd.data_type is not 'string' :
+            if type(hd.data_type) is not str:
+                df = df.withColumn(hd.new_name, df[hd.new_name].cast(hd.data_type))
+
+        '''
+        list_.insert(0, self.getHeader(normalize=True))
+        R = Row(*list_.pop(0))
+        df = sc.parallelize([R(*r) for r in list_]).toDF()
+        
+        for hd in self.header_detail:
+            #if hd.data_type is not 'string' :
+            if type(hd.data_type) is not str :
+                df = df.withColumn(hd.new_name, df[hd.new_name].cast(hd.data_type))
+        '''
+
+        return df
+
+
+#########################################
+##########         CSV         ##########
+#########################################
+
+import csv
+from io import StringIO
+
+
+class CsvConverter:
+
+    def __init__(self, schema):
+        self.init_schema = schema
+
+    def toList(self, data_, header=True, csv_header=True):
+        header_list = []
+        for key in self.init_schema:
+            header_list.append(key)
+
+        data = StringIO(data_)
+        if csv_header:
+            csv_reader = csv.DictReader(data, delimiter=',')
+        else:
+            csv_reader = csv.DictReader(data, delimiter=',', fieldnames=header_list)
+
+        line_count = 0
+        csv_content = []
+        for row in csv_reader:
+            csv_line = []
+            for key in self.init_schema:
+                if key in row:
+                    csv_line.append(row[key])
+                else:
+                    csv_line.append(None)
+            csv_content.append(csv_line)
+
+        if header:
+            csv_content.insert(0, header_list)
+
+        return csv_content

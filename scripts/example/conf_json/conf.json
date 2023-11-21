@@ -1,0 +1,39 @@
+{
+	"app": {
+		"name": "demo",
+		"validity_minutes": 1440,
+		"init_spark": false
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar",
+		"spark.executor.extraClassPath": "c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar"
+	},
+	"db_log": {
+		"_comment":"example in conf_db_log.json",
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"_comment":"example in conf_DataAcquisitionRead.json"
+			}
+		],
+		"DataAcquisitionWrite": [
+			{
+				"_comment":"example in conf_DataAcquisitionWrite.json"
+			}
+		],
+		"DataProcess": [
+			{}
+		],
+		"DataStoring": [
+			{
+				"_comment":"example in conf_DataStoring.json"
+			}
+		]
+	}
+}

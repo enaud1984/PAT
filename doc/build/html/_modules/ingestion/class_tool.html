@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ingestion.class_tool &#8212; PAT 0.1.0 documentazione</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/translations.js"></script>
+    <link rel="index" title="Indice" href="../../genindex.html" />
+    <link rel="search" title="Cerca" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Codice sorgente per ingestion.class_tool</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+
+
+<div class="viewcode-block" id="DbmsType"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.DbmsType">[documenti]</a><span class="k">class</span> <span class="nc">DbmsType</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
+    <span class="n">ORACLE</span> <span class="o">=</span> <span class="s2">&quot;ORACLE&quot;</span>
+    <span class="n">POSTGRES</span> <span class="o">=</span> <span class="s2">&quot;POSTGRES&quot;</span>
+    <span class="n">IMPALA</span> <span class="o">=</span> <span class="s2">&quot;IMPALA&quot;</span></div>
+
+
+<div class="viewcode-block" id="Base"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Base">[documenti]</a><span class="k">class</span> <span class="nc">Base</span><span class="p">:</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    _key = None</span>
+<span class="sd">    _key2 = None</span>
+<span class="sd">    def __init__(self):</span>
+<span class="sd">        key = id(self)</span>
+<span class="sd">        key2 = id(self)</span>
+<span class="sd">    def key(self, *args):</span>
+<span class="sd">        return self._return(self, &quot;_key&quot;, *args)</span>
+<span class="sd">    def key2(self, *args):</span>
+<span class="sd">        return self._return(self, &quot;_key2&quot;, *args)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_class</span><span class="p">,</span> <span class="n">_attr</span><span class="p">,</span> <span class="o">*</span><span class="n">_args</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">_class</span><span class="p">,</span> <span class="n">_attr</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">_class</span><span class="p">,</span> <span class="n">_attr</span><span class="p">,</span> <span class="n">_args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">_class</span></div>
+
+
+<div class="viewcode-block" id="BaseResponse"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.BaseResponse">[documenti]</a><span class="k">class</span> <span class="nc">BaseResponse</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="n">_exit_code</span> <span class="o">=</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="BaseResponse.exit_code"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.BaseResponse.exit_code">[documenti]</a>    <span class="k">def</span> <span class="nf">exit_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_exit_code&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Source"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Source">[documenti]</a><span class="k">class</span> <span class="nc">Source</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="n">_id_source</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">_filepath</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">_filename</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Source.id_source"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Source.id_source">[documenti]</a>    <span class="k">def</span> <span class="nf">id_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_id_source&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Source.data"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Source.data">[documenti]</a>    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_data&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Source.filepath"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Source.filepath">[documenti]</a>    <span class="k">def</span> <span class="nf">filepath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_filepath&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Source.filename"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Source.filename">[documenti]</a>    <span class="k">def</span> <span class="nf">filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_filename&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Storable"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Storable">[documenti]</a><span class="k">class</span> <span class="nc">Storable</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="n">_id_source</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_id_storable</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_data</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Storable.id_source"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Storable.id_source">[documenti]</a>    <span class="k">def</span> <span class="nf">id_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_id_source&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Storable.id_storable"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Storable.id_storable">[documenti]</a>    <span class="k">def</span> <span class="nf">id_storable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_id_storable&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Storable.data"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.Storable.data">[documenti]</a>    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_data&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ConnectorRead"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.ConnectorRead">[documenti]</a><span class="k">class</span> <span class="nc">ConnectorRead</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="n">_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">_filename</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="ConnectorRead.data"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.ConnectorRead.data">[documenti]</a>    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_data&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConnectorRead.filename"><a class="viewcode-back" href="../../ingestion.html#ingestion.class_tool.ConnectorRead.filename">[documenti]</a>    <span class="k">def</span> <span class="nf">filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_filename&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">PAT</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigazione</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Codice del modulo</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Ricerca veloce</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Vai" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Giuseppe Ventura.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

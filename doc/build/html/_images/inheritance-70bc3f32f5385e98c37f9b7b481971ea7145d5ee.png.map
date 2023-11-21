@@ -1,0 +1,5 @@
+<map id="inheritance47b2332985" name="inheritance47b2332985">
+<area shape="rect" id="node1" title="Helper class that provides a standard way to create an ABC using" alt="" coords="5,5,80,31"/>
+<area shape="rect" id="node2" href="#pat.chain_of_responsability.BaseRing" target="_top" title="Interfaccia Base dei vari anelli." alt="" coords="128,5,367,31"/>
+<area shape="rect" id="node3" href="#pat.chain_of_responsability.DataAcquisitionRead" target="_top" title="Anello per lettura input dati da sorgente" alt="" coords="415,5,719,31"/>
+</map>

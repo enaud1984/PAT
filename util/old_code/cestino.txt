@@ -1,0 +1,1073 @@
+
+class DbCxOracle:
+    DATA_TYPE_TIMESTAMP = "timestamp"
+    DATA_TYPE_INTEGER = "int"
+    DATA_TYPE_STRING = "string"
+    DATA_TYPE_FLOAT = "float"
+    DATA_TYPE_LIST = "list"
+    LIST_SEPARATOR = "||"
+    DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+    DICT_SCRIPT = "SCRIPT"
+    DICT_KEY = "KEY"
+    DICT_VALUE = "VALUE"
+    DICT_TYPE = "TYPE_VALUE"
+
+    def __init__(self, user, password, host, port, service):
+        self.string_connection = "{}/{}@{}:{}/{}".format( user,
+                                                          password,
+                                                          host,
+                                                          port,
+                                                          service )
+        self.connection = None
+        self.cur = None
+        self.connected = False
+        self.openConnection()
+
+    def openConnection(self):
+        self.connection = cx_Oracle.connect( self.string_connection, encoding="UTF-8", nencoding="UTF-8" )
+        self.connection.autocommit = False
+        self.cur = self.connection.cursor()
+        self.connected = True
+
+    def getConnection(self):
+        return self.connection, self.cur
+
+    def close(self):
+        if self.connected:
+            self.connection.commit()
+            self.cur.close()
+            self.connection.close()
+            self.connected = False
+
+    def resetConnection(self):
+        self.cur.close()
+        self.connection.close()
+        self.openConnection()
+
+    def executeMany(self, query, tuples, commit=False, fields=None):
+        values = []
+        print("executeMany tuples 1 = {}".format(tuples))
+        if tuples in ([], None):
+            return
+        if fields not in (None, "", []):
+            values = []
+            for r in tuples:
+                value = {}
+                for i in range( len( r ) ):
+                    value[fields[i]] = r[i]
+                values.append( value )
+            tuples = values
+        self.valori = tuples
+
+        print("executeMany tuples 2 = {}".format(tuples))
+        print("executeMany query = {}".format(query))
+
+
+        if self.connected:
+            try:
+                self.cur.prepare( query )
+                self.cur.executemany( None, tuples )
+
+            except Exception as e:
+                error, = e.args
+                print( 'Error.code =', error.code )
+                print( 'Error.message =', error.message )
+                print( 'Error.offset =', error.offset )
+                print( "Row", self.cur.rowcount, "has error", error.message )
+                self.connection.rollback()
+                raise
+            else:
+                self.connection.commit() if commit else None
+        else:
+            pass
+
+    def executeQuery(self, query, parameter={}, commit=False, isSelect=False, isSelectColumns=False):
+        if self.connected:
+            try:
+                self.cur.prepare( query )
+                self.cur.execute( query, parameter )
+            except cx_Oracle.DatabaseError as e:
+                error, = e.args
+                # self.logger.error('Error.code =', error.code)
+                # self.logger.error('Error.message =', error.message)
+                # self.logger.error('Error.offset =', error.offset)
+                # self.logger.error("Row", self.cur.rowcount, "has error", error.message)
+                self.connection.rollback()
+                raise e
+            else:
+                self.connection.commit() if commit else None
+
+
+            if isSelectColumns:
+                res = self.cur.fetchall()
+                columns = [i[0] for i in self.cur.description]
+                return res, columns
+            elif isSelect:
+                res = self.cur.fetchall()
+                return res
+
+
+
+        else:
+            pass
+
+    def executeProcedure(self, procname, commit=False, parameters=None):
+        if self.connected:
+            try:
+                self.cur.callproc( procname, parameters ) if parameters is not None else self.cur.callproc( procname )
+            except cx_Oracle.DatabaseError as e:
+                error, = e.args
+                print( 'Error.code =', error.code )
+                print( 'Error.message =', error.message )
+                print( 'Error.offset =', error.offset )
+                print( "Row", self.cur.rowcount, "has error", error.message )
+                self.connection.rollback()
+                raise
+            else:
+                self.connection.commit() if commit else None
+        else:
+            pass
+
+    def getQueryResult(self):
+        if self.connected:
+            res = self.cur.fetchall()
+            return res
+        else:
+            return None
+
+    def truncateTable(self, table_name):
+        query = "truncate table {}".format( table_name )
+        self.executeQuery( query )
+
+    def truncateWithDelete(self, table_name, where_clause="", commit=False):
+        query = "DELETE FROM {}".format( table_name )
+        if where_clause:
+            query += " WHERE {}".format( where_clause )
+        self.executeQuery( query, commit=commit )  # ????
+
+    def renameTable(self, old_table_name, new_table_name):
+        query = "rename table {} to {}".format( old_table_name, new_table_name )
+        self.executeQuery( query )
+
+    def dropTable(self, table_name):
+        query = "drop table {}".format( table_name )
+        self.executeQuery( query )
+
+    def checkTableExist(self, table_name, user):
+        query = "select count(*) from all_objects where object_type ='TABLE' and object_name = '{}' and owner='{}'".format(
+            table_name.upper(), user.upper() )
+        self.executeQuery( query )
+        return self.getQueryResult()[0][0]
+
+    def insertListOfDictsIntoTable(self, table_name, l, dt_cols=[], commit=False):
+        cols = sorted( list( l[0].keys() ) )
+
+        if dt_cols:
+            non_dt_cols = list( set( cols ) - set( dt_cols ) )
+        else:
+            non_dt_cols = cols
+
+        cols = non_dt_cols + dt_cols
+
+        l = [[dic[col] for col in cols] for dic in l]
+        self.insertListIntoTable( table_name, l, non_dt_cols, dt_cols )
+        if commit:
+            self.connection.commit()
+
+    def insertListIntoTable(self, table_name, l, non_dt_cols, dt_cols=[]):
+        '''
+        The first values of each row should represent non-datetime fields.
+        '''
+        brackets_str = ", ".join( ["{}"] * len( non_dt_cols ) )
+        if dt_cols:
+            brackets_str += ", "
+            brackets_str += ", ".join( ["to_timestamp({}, 'yyyy-MM-dd HH24:mi:ss')"] * len( dt_cols ) )
+        n_cols = len( dt_cols ) + len( non_dt_cols )
+        brackets_str = brackets_str.format( *[":" + str( i + 1 ) for i in range( 0, n_cols )] )
+        cols_str = ", ".join( non_dt_cols + dt_cols )
+
+        query = "INSERT INTO {} ({}) VALUES ({})".format( table_name, cols_str, brackets_str )
+        self.executeMany( query, l )
+
+    def updateTableWhere(self, table_name, value_dict, where_clause="", commit=False):
+        query = "UPDATE {} SET ".format( table_name )
+        query += ", ".join( "{}='{}'".format( k, v ) for k, v in value_dict.items() )
+        if where_clause:
+            query += " where {}".format( where_clause )
+        self.executeQuery( query, commit=commit )
+
+    def setKeyValue(self, script=None, key=None, value=None, type=None):
+        try:
+            if type == self.DATA_TYPE_TIMESTAMP:
+                date_format = self.DATETIME_FORMAT
+                value_str = value.strftime( date_format )
+            elif type == self.DATA_TYPE_LIST:
+                value_str = self.LIST_SEPARATOR.join( str( x ) for x in value )
+            else:
+                value_str = str( value )
+
+            param = {"SCRIPT": script, "KEY": key, "VALUE": value_str, "TYPE_VALUE": type}
+            q = "MERGE INTO KEY_VALUE d USING (select 1 FROM DUAL) \
+                    ON (d.SCRIPT = :SCRIPT AND d.KEY = :KEY AND d.TYPE_VALUE = :TYPE_VALUE) \
+                    WHEN MATCHED THEN UPDATE SET d.VALUE = :VALUE \
+                    WHEN NOT MATCHED THEN INSERT (SCRIPT, KEY, VALUE, TYPE_VALUE) VALUES (:SCRIPT, :KEY, :VALUE, :TYPE_VALUE)"
+
+            self.executeQuery( query=q, parameter=param, commit=True )
+
+        except Exception as e:
+            print( "set_key_value - ERRORE" )
+            raise e
+
+    def getKeyValue(self, script=None, key=None, orderBy=None):
+        try:
+            q = "SELECT SCRIPT,KEY,VALUE,TYPE_VALUE FROM KEY_VALUE WHERE SCRIPT = :1 AND KEY LIKE :2"
+            q += " ORDER BY {}".format( orderBy ) if orderBy is not None else ""
+            param = (script, '{}'.format( key ))
+
+            self.executeQuery( query=q, parameter=param )
+            res = self.getQueryResult()
+
+            if len( res ) > 0:
+                return_values = []
+                for record in res:
+                    obj_key_value = {}
+                    obj_key_value[self.DICT_SCRIPT] = record[0]
+                    obj_key_value[self.DICT_KEY] = record[1]
+                    value = record[2]
+                    type_value = record[3]
+
+                    obj_key_value[self.DICT_TYPE] = type_value
+
+                    # decodifico il value in base al tipo
+                    if type_value == self.DATA_TYPE_TIMESTAMP:
+                        obj_key_value[self.DICT_VALUE] = datetime.strptime( value, self.DATETIME_FORMAT )
+                    elif type_value == self.DATA_TYPE_LIST:
+                        obj_key_value[self.DICT_VALUE] = value.split( self.LIST_SEPARATOR )
+                    elif type_value == self.DATA_TYPE_INTEGER:
+                        obj_key_value[self.DICT_VALUE] = int( value )
+                    elif type_value == self.DATA_TYPE_INTEGER:
+                        obj_key_value[self.DICT_VALUE] = float( value )
+                    elif type_value == self.DATA_TYPE_STRING:
+                        obj_key_value[self.DICT_VALUE] = value
+                    return_values.append( obj_key_value )
+
+                return return_values
+            return None
+
+        except Exception as e:
+            print( "get_key_value - ERRORE" )
+            print( e )
+            traceback.print_exc()
+            raise e
+
+    def get_key_value(self, script=None, key=None, type=None, orderBy=None):
+        try:
+            q = "SELECT * FROM KEY_VALUE WHERE SCRIPT = :1 AND KEY LIKE :2"
+            q += " ORDER BY {}".format( orderBy ) if orderBy is not None else ""
+            param = (script, '{}'.format( key ))
+
+            self.executeQuery( query=q, parameter=param )
+            res = self.getQueryResult()
+
+            if len( res ) > 0:
+                return_values = []
+
+                for record in res:
+                    rec_script = record[0]
+                    rec_key = record[1]
+                    rec_value = record[2]
+                    rec_type = record[3]
+
+                    if type == self.DATA_TYPE_TIMESTAMP:
+                        date_format = "%Y-%m-%d %H:%M:%S"
+                        rec_value = datetime.strptime( rec_value, date_format )
+
+                    if type == self.DATA_TYPE_LIST:
+                        rec_value = rec_value.split( self.LIST_SEPARATOR )
+                    if type == self.DATA_TYPE_INTEGER:
+                        rec_value = int( rec_value )
+                    if type == self.DATA_TYPE_FLOAT:
+                        rec_value = float( rec_value )
+
+                    return_values.append(
+                        {self.DICT_SCRIPT: rec_script, self.DICT_KEY: rec_key, self.DICT_VALUE: rec_value,
+                         self.DICT_TYPE: rec_type} )
+
+                return return_values
+            return None
+
+        except Exception as e:
+            print( "get_key_value - ERRORE" )
+            print( e )
+            traceback.print_exc()
+            raise e
+
+    def delKeyValue(self, script=None, key=None):
+        try:
+            param = (script, key)
+            q = "DELETE FROM KEY_VALUE WHERE SCRIPT = :1 AND KEY = :2"
+
+            self.executeQuery( query=q, parameter=param, commit=True )
+
+        except Exception as e:
+            print( "del_key_value - ERRORE" )
+            raise e
+
+
+
+class SqlAlchemy:
+    def __init__(self,base, allClasses, db_url,create=False,delete_all=False,verbose=False, schema=None):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        self.logger = logging.getLogger( __name__ )
+        try:
+            self.db_url=db_url
+            self.base=base
+            self.allClasses=allClasses
+            self.checkOperation = False
+            if schema:
+                self.engine = create_engine( self.db_url,
+                    connect_args={'options': '-csearch_path={}'.format(schema)},
+                    echo=verbose )
+            else:
+                self.engine = create_engine( self.db_url,
+                                         echo=verbose )
+
+            # sessionmaker returns a class
+            self.session = sessionmaker( bind=self.engine )()
+            self.checkTableExist(create)
+            self.deleteAll(delete_all)
+            self.checkOperation=True
+        except Exception as e:
+            self.logger.error("Errore initializeSessionDb ", e)
+
+    def getSession(self):
+        return self.session
+
+    def checkTableExist(self,create):
+        # Check if it has the tables
+        try:
+            for table in self.base.metadata.tables.keys():
+                if not self.engine.has_table( table ):
+                    if create:
+                        self.logger.info( "Creazione tabella {}".format( table ) )
+                        self.base.metadata.tables[table].create( self.engine )
+                    else:
+                        self.logger.info( "Tabella assente {}}!".format( table ) )
+                        exit( 1 )
+            return True
+        except Exception as e:
+            self.logger.error("Errore checkTableExist ", e)
+            return False
+
+    def deleteAll(self,delete_all):
+        #Go through all of the tables that we create, clear them
+        if delete_all:
+            for theClass in self.allClasses:
+                for obj in self.session.query( theClass ):
+                    self.session.delete( obj )
+
+
+
+
+
+class DbLogger():
+
+    def __init__(self, db, log_table, run_id, script_name, description="", log_path="",
+                 app_id="", file_hdfs="", log_table_hdfs=None):
+        self.db = db
+        self.log_table = log_table
+        # self.log_table_hdfs= log_table_hdfs
+        self.timer = MyTimer(id_="db_logger_" + log_table)
+        self.run_id = run_id
+        self.script_name = script_name
+        self.description = description
+        self.log_path = log_path
+        self.app_id = app_id
+        self.log_table_hdfs = log_table_hdfs
+        # self.file_hdfs=file_hdfs
+
+    def setLogPath(self, path):
+        self.log_path = path
+
+    def setAppId(self, appId):
+        self.app_id = appId
+
+    def logStartExecution(self, validity_minutes=None):
+        dt_cols = ["START_TIME", "EXPIRATION_DATE"]
+
+        exp_dt = None
+        START_TIME_ENV = os.environ.get('START_TIME')
+        if START_TIME_ENV is not None:
+            print('START_TIME = ' + START_TIME_ENV)
+            dt = datetime.strptime(START_TIME_ENV, "%Y-%m-%d %H:%M:%S")
+        else:
+            dt = datetime.utcnow().replace(microsecond=0)
+
+        self.start_dt = dt
+        self.validity_minutes = validity_minutes
+        if validity_minutes is not None:
+            exp_dt = self.start_dt + timedelta(minutes=self.validity_minutes)
+
+        dt = datetime.strftime(dt, format="%Y-%m-%d %H:%M:%S")
+        exp_dt = datetime.strftime(exp_dt, format="%Y-%m-%d %H:%M:%S")
+        row = [{"RUN_ID": self.run_id, "SCRIPT": self.script_name, "DESCRIPTION": self.description, "EXIT_CODE": 1,
+                "START_TIME": dt, "APP_ID": self.app_id, "LOG_PATH": self.log_path, "EXPIRATION_DATE": exp_dt}]
+        # row_table_hdfs=[{"RUN_ID": self.run_id,"FILE_HDFS":self.file_hdfs}]
+
+        print("logStartExecution row = {} ".format(row))
+        print("logStartExecution dt_cols = {}".format(dt_cols))
+        print("logStartExecution self.log_table = {}".format(self.log_table))
+
+        self.db.insertListOfDictsIntoTable(self.log_table, row, dt_cols=dt_cols, commit=True)
+        # self.db.insertListOfDictsIntoTable( self.log_table_hdfs, row_table_hdfs, commit=True )
+
+    def logEndExecution(self, status=0, description=None, filename_list=None):
+        # print("___### self.validity_minutes = " + str(self.validity_minutes))
+        print("logEndExecution - INIT")
+        ex_time = self.timer.timeSinceStart()
+
+        dt = datetime.utcnow().replace(microsecond=0)
+        dt = datetime.strftime(dt, format="%Y-%m-%d %H:%M:%S")
+
+        query = "UPDATE {} SET ".format(self.log_table)
+        query += "END_TIME=to_timestamp('{}', 'yyyy-MM-dd HH24:mi:ss'), ".format(dt)
+        query += "EXIT_CODE={}, ".format(status)
+        query += "APP_ID='{}', ".format(self.app_id)
+        if description is not None:
+            query += "DESCRIPTION='{}', ".format(description.replace("'", "''"))
+
+        # if self.validity_minutes is not None:
+        #    exp_dt = self.start_dt + timedelta(minutes=self.validity_minutes)
+        #    query += "EXPIRATION_DATE=to_timestamp('{}', 'yyyy-MM-dd HH24:mi:ss'), ".format(exp_dt)
+        query += "EXECUTION_TIME={:0.3f} ".format(ex_time)
+        query += "WHERE RUN_ID='{}'".format(self.run_id)
+        # print(query)
+        self.db.executeQuery(query, commit=True)
+        print(f"filename_list: {filename_list}")
+        print(f"log_table_hdfs: {self.log_table_hdfs}")
+        if filename_list and self.log_table_hdfs:
+            print("**** file_list ****")
+            if not self.db.checkTableExists(self.log_table_hdfs):
+                self.createLogTableHdfs()
+            print("**** tabella esistente ****")
+            res = []
+            for n in filename_list:
+                res.append((self.run_id, n))
+            self.db.executeMany("insert into {} (run_id,file_hdfs) values (?, ?)".format(self.log_table_hdfs),
+                                res, commit=True)
+
+    def close(self):
+        self.db.close()
+
+    def truncateLogTable(self):
+        try:
+            query = "truncate table {}".format(self.log_table)
+            self.db.executeQuery(query)
+        except:
+            pass
+
+    def dropLogTable(self):
+        try:
+            query = "drop table {}".format(self.log_table)
+            self.db.executeQuery(query)
+        except:
+            pass
+
+    def createLogTable(self):
+        query = "CREATE TABLE {} ".format(self.log_table)
+        query += "(RUN_ID VARCHAR2(128 BYTE) NOT NULL, SCRIPT VARCHAR2(64 BYTE) NOT NULL, "
+        query += "DESCRIPTION VARCHAR2(512 BYTE), EXECUTION_TIME FLOAT(126), "
+        query += "EXIT_CODE NUMBER(*,0), "
+        query += "START_TIME DATE, END_TIME DATE)"
+        self.db.executeQuery(query)
+
+    def createLogTableHdfs(self):
+        # solo per postgres
+        query = "CREATE TABLE {} ".format(self.log_table_hdfs)
+        query += "(RUN_ID character varying(128) NOT NULL, FILE_HDFS character varying(300) NOT NULL)"
+        print("CreateLogTableHdfs:", query)
+        self.db.executeQuery(query)
+
+class CompattatoreOld:
+    FILE_FORMAT_ORC = "orc"
+    FILE_FORMAT_PARQUET = "parquet"
+
+    def __init__(self, table_final_location, location_tmp_compact, location_tmp_file, spark=None, hdfs=None):
+        try:
+            self.table_final_location = table_final_location
+            self.location_tmp_compact = location_tmp_compact
+            self.location_tmp_file = location_tmp_file
+            self.hdfs = hdfs if hdfs is not None else Hdfs()
+            if spark is None:
+                self.sparkUtility = Spark("compattatore", {"hive.exec.max.dynamic.partition.pernode": "10000"})
+                self.flag_spark = True
+            else:
+                self.sparkUtility = spark
+                self.flag_spark = False
+            self.SQLContext = self.sparkUtility.getSQLContext()
+        except Exception as e:
+            traceback.print_exc()
+
+    def setLocations(self, table_final_location=None, location_tmp_compact=None, location_tmp_file=None):
+        self.table_final_location = table_final_location if table_final_location is not None else self.table_final_location
+        self.location_tmp_compact = location_tmp_compact if location_tmp_compact is not None else self.location_tmp_compact
+        self.location_tmp_file = location_tmp_file if location_tmp_file is not None else self.location_tmp_file
+
+    # Funzione che effettua la count nelle cartelle temporanee
+    def count(self):
+        count_compact = subprocess.Popen('hdfs dfs -ls -q {}/*|wc -l'.format(self.location_tmp_compact),
+                                         stdout=subprocess.PIPE, stderr=None, shell=True)
+        count_compact = count_compact.communicate()
+        count_file = subprocess.Popen('hdfs dfs -ls -q {}/*|wc -l'.format(self.location_tmp_file),
+                                      stdout=subprocess.PIPE, stderr=None, shell=True)
+        count_file = count_file.communicate()
+        return int(count_compact[0]), int(count_file[0])
+
+    # Controllo sull'esistenza di un compact nella cartella temporanea. Se esiste giÃ  un file, viene lanciata un'eccezione e non va piu avanti (male)
+    # aggiusta
+    def check(self):
+        try:
+            #print("********INIZIO CHECK***********")
+            subprocess.check_output('hdfs dfs -ls -q {}'.format(self.location_tmp_compact), shell=True,
+                                    stderr=subprocess.STDOUT)
+            subprocess.check_output('hdfs dfs -ls -q {}'.format(self.location_tmp_file), shell=True,
+                                    stderr=subprocess.STDOUT)
+            count_compact, count_file = self.count()
+            #print("***", count_compact, count_file)
+            if (count_compact > 0 or count_file > 0):
+                raise Exception("Qualche compattamento nei giorni precedenti Ãš fallito")
+            #print("********FINE CHECK***********")
+        except(Exception) as e:
+            print("********ERRORE CHECK***********")
+            raise
+
+            # Creazione della cartella temporanea (/compact) dove viene salvato il file contenente tutti i dati compattati
+
+    def compattamentoFile(self, formato=FILE_FORMAT_PARQUET):
+        try:
+            #print("********INIZIO COMPATTAMENTO***********")
+
+            # self.final_location_str = "{}/year={}/month={}/day={}".format(self.table_final_location, self.year, self.month, self.day)
+            # parquet_df = self.SQLContext.read.format("parquet").load(self.final_location_str)
+            parquet_df = self.SQLContext.read.format(formato).load(self.table_final_location)
+            parquet_df.coalesce(1).write.mode("append").format(formato).parquet(self.location_tmp_compact)
+            #print("********FINE compattamentoFile***********")
+        except Exception as e:
+            print("********ERRORE compattamentoFile***********")
+            raise
+
+    # Creazione della cartella temporanea (/file) dove vengono copiati i file "piccolini"
+    def copyFile(self):
+        try:
+            #print("********INIZIO COPY***********")
+            # file_copy = "{}/part*.snappy.parquet".format(self.final_location_str)
+            file_copy = "{}/part*.snappy.parquet".format(self.table_final_location)
+            result_copy = subprocess.check_call(['hdfs dfs -cp {} {}'.format(file_copy, self.location_tmp_file)],
+                                                shell=True, stdin=subprocess.PIPE)
+            #print("********FINE COPY***********")
+        except Exception as e:
+            print("********ERRORE COPY***********")
+            raise
+
+    # Cancellazione dei file "piccolini" nella partizione e spostamento del compact
+    def delete_move(self):
+        try:
+            #print("********INIZIO DELETE_MOVE***********")
+            # parquet_delete = "{}/part*.snappy.parquet".format(self.final_location_str)
+            parquet_delete = "{}/part*.snappy.parquet".format(self.table_final_location)
+            #parquet_delete = "{}".format(self.table_final_location) PROVA!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            result_delete = subprocess.check_call('hdfs dfs -rm -r {}'.format(parquet_delete), shell=True,
+                                                  stdin=subprocess.PIPE)
+
+            #self.hdfs.hdfsMkdir(self.table_final_location) PROVA !!!!!!!!!!!!!!!!!!!!!!!!
+            loc_app = "{}/*.snappy.parquet".format(self.location_tmp_compact)
+            # result_move = subprocess.check_call('hdfs dfs -mv {} {}'.format(loc_app,self.final_location_str), shell=True, stdin=subprocess.PIPE)
+            result_move = subprocess.check_call('hdfs dfs -mv {} {}'.format(loc_app, self.table_final_location),
+                                                shell=True, stdin=subprocess.PIPE)
+            #print("********FINE DELETE_MOVE***********")
+        except Exception as e:
+            print("********ERRORE DELETE_MOVE***********")
+            raise
+
+            # Cancellazione tmp
+
+    def remove_tmp(self):
+        try:
+            #print("********INIZIO REMOVE_TMP***********")
+            delete_tmp_compact = subprocess.check_call('hdfs dfs -rm -r {}'.format(self.location_tmp_compact),
+                                                       shell=True, stdin=subprocess.PIPE)
+            delete_tmp_file = subprocess.check_call('hdfs dfs -rm -r {}'.format(self.location_tmp_file), shell=True,
+                                                    stdin=subprocess.PIPE)
+            #print("********FINE REMOVE_TMP***********")
+        except(Exception) as e:
+            print("********ERRORE REMOVE_TMP***********")
+            raise
+
+            # def __del__(self):
+
+    #    self.sparkUtility.close()
+
+    def runCompattamento(self):
+        try:
+            #print("********INIZIO COMPATTAMENTO***********")
+
+            # Creazione delle tmp e controllo sull'esistenza di file nelle tmp
+            self.hdfs.hdfsMkdir(self.location_tmp_file)
+            self.hdfs.hdfsMkdir(self.location_tmp_compact)
+            self.check()
+
+            # Operazioni relative al compattamento
+            self.compattamentoFile(self.FILE_FORMAT_PARQUET)
+            self.copyFile()
+
+            self.delete_move()
+            self.remove_tmp()
+
+            self.sparkUtility.close() if self.flag_spark else None
+            #print("********FINE COMPATTAMENTO***********")
+        except Exception as e:
+            print("********ERRORE COMPATTAMENTO***********")
+            self.sparkUtility.close() if self.flag_spark else None
+            traceback.print_exc()
+            raise
+
+# new version
+class Compattatore:
+    def __init__(self, table, spark=None, hdfs=None):
+        self.table = table
+
+        self.hdfs = hdfs if hdfs is not None else Hdfs()
+        if spark is None:
+            self.sparkUtility = Spark("compattatore", {"hive.exec.max.dynamic.partition.pernode": "10000"})
+            self.flag_spark = True
+        else:
+            self.sparkUtility = spark
+            self.flag_spark = False
+        self.SQLContext = self.sparkUtility.getSQLContext()
+
+    def changeName(self, name):
+        split_name = name.split('_')
+        if len(split_name) > 1:
+            if split_name[-1] == "compact":
+                return '_'.join(split_name[:-1])
+        return name + "_compact"
+
+    def getTableInfo(self, table):
+        partitions = []
+        table_location = None
+        flag_partition = False
+
+        res = self.spark.getHiveContext().sql("DESCRIBE FORMATTED {}".format(table)).collect()
+        for row in res:
+            if row.col_name == "# Partition Information":
+                flag_partition = True
+            elif flag_partition:
+                if row.col_name == '':
+                    flag_partition = False
+                    continue
+                partitions.append(row.col_name)
+            elif row.col_name == "Location":
+                table_location = row.data_type
+
+        return {"location": table_location, "partitions": partitions[1:]}
+
+    def execute(self):
+        try:
+            print("init")
+
+            # select from original_table
+            print("select from source table")
+            query = "SELECT * FROM {}".format(self.table)
+            df_source = self.spark.getHiveContext().sql(query)
+
+            # write data in tmp
+            print("insert overwrite to dest table")
+            info = self.getTableInfo(self.table)
+            table_location = info["location"]
+            partitions = info["partitions"]
+            new_table_location = self.changeName(table_location)
+            table_tmp = self.changeName(self.table)
+            # vedi repartition invece del coalesce
+            df_source.coalesce(1).write \
+                .option("path", new_table_location) \
+                .mode("overwrite") \
+                .partitionBy(*partitions) \
+                .saveAsTable(table_tmp)
+
+            # drop tabella originale
+            print("drop source table")
+            self.spark.getHiveContext().sql("DROP TABLE {}".format(self.table))
+
+            # rm file adl
+            print("rm files adl source table")
+            subprocess.call(["hadoop", "fs", "-rm", "-r", table_location])
+
+            # rename nuova tabella
+            print("rename dest table")
+            self.spark.getHiveContext().sql("ALTER TABLE {} RENAME TO {}".format(table_tmp, self.table))
+
+            self.sparkUtility.close() if self.flag_spark else None
+            print("end")
+        except Exception as e:
+            print("********ERRORE COMPATTAMENTO***********")
+            self.sparkUtility.close() if self.flag_spark else None
+            raise
+
+
+class Logger:
+    local_log_filename = None
+    mylogger = None
+    mylogger_handler = None
+    enable_print = False
+    enable_verbose = False
+    level_num = -1
+
+    class LogLevel(str, Enum):
+        VERBOSE = 0
+        DEBUG = 1
+        INFO = 2
+        WARNING = 3
+        ERROR = 4
+        CRITICAL = 5
+
+
+    def __init__(self, class_name, app_name, local_log_file, time_precision="second", log_level="INFO"):
+        mode = {
+            "day": '%Y%m%d',
+            "hour": '%Y%m%d%H',
+            "minute": '%Y%m%d%H%M',
+            "second": '%Y%m%d%H%M%S%f'
+        }
+
+        level_ = ""
+        if log_level == "DEBUG" :
+            level_ = logging.DEBUG
+            self.level_num = self.LogLevel.DEBUG
+        elif log_level == "VERBOSE" :
+            level_ = logging.DEBUG
+            self.level_num = self.LogLevel.DEBUG
+            self.enable_verbose = True
+        elif log_level == "ERROR" :
+            level_ = logging.ERROR
+            self.level_num = self.LogLevel.ERROR
+        else :
+            level_ = logging.INFO
+            self.level_num = self.LogLevel.INFO
+
+        if time_precision not in mode.keys():
+            time_precision = "second"
+
+        # logging.basicConfig(filename=LOCAL_LOG_FILE, level=logging.INFO)
+        self.local_log_filename = local_log_file
+        self.hdfs_date_format = datetime.today().strftime( mode[time_precision] )
+
+        logging.getLogger("py4j").setLevel(logging.ERROR)
+        logging.getLogger('pyspark').setLevel(logging.ERROR)
+        class_name = "ingestion"
+        Logger.mylogger = logging.getLogger( class_name )
+        Logger.mylogger.setLevel( level_ )
+
+        formatter = logging.Formatter( '%(name)s\t- %(levelname)s\t- (%(threadName)-10s)\t- %(message)s' )
+
+        self.logger_handler = logging.handlers.RotatingFileHandler( self.local_log_filename, maxBytes = 18874368, backupCount = 1)
+        self.logger_handler.setLevel( level_)
+        self.logger_handler.setFormatter( formatter )
+        Logger.mylogger.addHandler( self.logger_handler )
+
+        self.mylogger_handler = self.logger_handler
+
+        ENABLE_PRINT = os.environ.get( 'ENABLE_PRINT' )
+        if ENABLE_PRINT is not None:
+            print( 'ENABLE_PRINT = ' + ENABLE_PRINT )
+            #self.enable_print = True
+            consoleHandler = logging.StreamHandler()
+            consoleHandler.setFormatter(formatter)
+            Logger.mylogger.addHandler(consoleHandler)
+
+    def closeLogger(self, logger_handler):
+        self.logger_handler.flush()
+        self.logger_handler.close()
+
+    def __del__(self):
+        self.mylogger_handler.flush()
+        self.mylogger_handler.close()
+
+    def getLoggerFileName(self):
+        return self.local_log_filename
+
+    def getLogger(self):
+        return Logger.mylogger
+
+    def removeLogger(self):
+        proc = subprocess.Popen( "rm -f {}".format( self.getLoggerFileName() ), shell=True )
+        proc.communicate()
+
+    def error(self, msg, flag_date=True, exc_info=None):
+        if self.level_num <= self.LogLevel.ERROR :
+            m = msg if not flag_date else "{} - {}".format( datetime.now().strftime( "%Y/%m/%d %H:%M:%S" ), msg )
+
+            if self.enable_print:
+                print( "ERROR - {}".format( m ) )
+
+            if exc_info is None:
+                Logger.mylogger.error( m )
+            else:
+                Logger.mylogger.error( m, exc_info )
+
+    def warning(self, msg, flag_date=True):
+        if self.level_num <= self.LogLevel.WARNING :
+            m = msg if not flag_date else "{} - {}".format( datetime.now().strftime( "%Y/%m/%d %H:%M:%S" ), msg )
+
+            if self.enable_print:
+                print( "WARNING - {}".format( m ) )
+            Logger.mylogger.warning( m )
+
+    def info(self, msg, flag_date=True):
+        if self.level_num <= self.LogLevel.INFO :
+            m = msg if not flag_date else "{} - {}".format( datetime.now().strftime( "%Y/%m/%d %H:%M:%S" ), msg )
+
+            if self.enable_print:
+                print( "INFO - {}".format( m ) )
+            Logger.mylogger.info( m )
+
+    def debug(self, msg, flag_date=True):
+        if self.level_num <= self.LogLevel.DEBUG :
+            caller = inspect.stack()[1][3]
+            method = inspect.stack()[2][3] if caller == "wrapper" else caller
+            m = msg if not flag_date else "{} - {}".format( datetime.now().strftime( "%Y/%m/%d %H:%M:%S" ), msg )
+
+            if self.enable_print:
+                print( "DEBUG - {} - {}".format(method, m))
+            Logger.mylogger.debug( m )
+
+    def verbose(self, msg, flag_date=True):
+        if self.level_num <= self.LogLevel.VERBOSE :
+            caller = inspect.stack()[1][3]
+            method = inspect.stack()[2][3] if caller == "wrapper" else caller
+            m = msg if not flag_date else "{} - {}".format( datetime.now().strftime( "%Y/%m/%d %H:%M:%S" ), msg )
+
+            if self.enable_print:
+                print( "VERBOSE - {} - {}".format(method, m))
+            Logger.mylogger.debug( " (v) {}".format(m) )
+
+    def debug_old(self, msg, flag_date=True):
+        m = msg if not flag_date else "{} - {}".format( datetime.now().strftime( "%Y/%m/%d %H:%M:%S" ), msg )
+
+        if self.enable_print:
+            print( "DEBUG - {}".format( m ) )
+        Logger.mylogger.debug( m )
+
+class Db:
+    class DatabaseError(Exception):
+        def __init__(self, exc):
+            super(Db.DatabaseError, self).__init__(exc)
+
+    DB_TYPE_ORACLE = "ORACLE"
+    DB_TYPE_POSTGRES = "POSTGRES"
+    DB_TYPE_IMPALA = "IMPALA"
+
+    DATA_TYPE_TIMESTAMP = "timestamp"
+    DATA_TYPE_INTEGER = "int"
+    DATA_TYPE_STRING = "string"
+    DATA_TYPE_FLOAT = "float"
+    DATA_TYPE_LIST = "list"
+    LIST_SEPARATOR = "||"
+    DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+    DICT_SCRIPT = "SCRIPT"
+    DICT_KEY = "KEY"
+    DICT_VALUE = "VALUE"
+    DICT_TYPE = "TYPE_VALUE"
+
+    def __init__(self, driver, url, user, password, jar_filepath, schema=None):
+        self.url = url
+        self.user = user
+        self.password = password
+        self.driver = driver
+        self.connection = None
+        self.jar_filepath = jar_filepath
+        self.connected = False
+        self.db_type = None
+        self.db_schema = schema
+        self.openConnection()
+
+    def openConnection(self):
+        try:
+            # self.connection = jaydebeapi.connect("oracle.jdbc.OracleDriver", "jdbc:oracle:thin:@//{}".format(self.url),
+            if "jdbc:oracle:" in self.url:
+                self.db_type = self.DB_TYPE_ORACLE
+                self.connection = jaydebeapi.connect(self.driver, self.url,
+                                                     {'user': self.user, 'password': self.password},
+                                                     self.jar_filepath)
+            elif "jdbc:postgresql:" in self.url:
+                self.db_type = self.DB_TYPE_POSTGRES
+                self.connection = jaydebeapi.connect(self.driver, self.url, [self.user, self.password],
+                                                     self.jar_filepath)
+            elif "jdbc:impala:" in self.url:
+                self.db_type = self.DB_TYPE_IMPALA
+                self.connection = jaydebeapi.connect(self.driver, self.url, [], self.jar_filepath)
+
+            self.connection.jconn.setAutoCommit(False)
+            self.connected = True
+        except Exception as e:
+            raise self.DatabaseError(e)
+
+    def getConnection(self):
+        return self.connection
+
+    def close(self):
+        if self.connected:
+            self.connection.commit()
+            self.connection.close()
+            self.connected = False
+
+    def resetConnection(self):
+        self.connection.close()
+        self.openConnection()
+
+    def checkTableExists(self, tablename):
+        if "jdbc:postgresql:" in self.url:
+            stmt = f"SELECT to_regclass('{tablename}')"
+            stmt = f"SELECT '{tablename}'::regclass"
+        else:
+            return
+        dbcur = self.connection.cursor()
+        dbcur.execute(stmt)
+        print("RETURN QUERY CHECKTABLES EXIST:", dbcur.fetchall())
+        print("dbcur.fetchone() is not None: ", dbcur.fetchall() is not None)
+        if dbcur.fetchall() is not None:
+            print("TABELLA ESISTE")
+            dbcur.close()
+            return True
+        print("TABELLA non ESISTE")
+        dbcur.close()
+        return False
+
+    def executeMany(self, query, tuples, commit=False):
+
+        print("executeMany - query == {}".format(query))
+        print("executeMany - tuples == {}".format(tuples))
+
+        if self.connected:
+            cursor = self.connection.cursor()
+            try:
+                cursor.executemany(query, tuples)
+                if commit:
+                    self.connection.commit()
+            except Exception as e:
+                raise
+            finally:
+                cursor.close()
+        else:
+            pass
+
+    def executeQuery(self, query, parameter=None, commit=False, isSelect=False):
+        if self.connected:
+            cursor = self.connection.cursor()
+            try:
+                # Jdbc doesn't support named parameters (:name, ...).
+                cursor.execute(query, parameter) if parameter else cursor.execute(query)
+                if commit:
+                    self.connection.commit()
+                if isSelect:
+                    res = cursor.fetchall()
+                    return res
+            except Exception as e:
+                raise
+            finally:
+                cursor.close()
+        else:
+            pass
+
+    def truncateTable(self, table_name):
+        query = "truncate table {}".format(table_name)
+        self.executeQuery(query)
+
+    def truncateWithDelete(self, table_name, where_clause="", commit=False):
+        query = "DELETE FROM {}".format(table_name)
+        if where_clause:
+            query += " WHERE {}".format(where_clause)
+        self.executeQuery(query, commit=commit)  # ????
+
+    def renameTable(self, old_table_name, new_table_name):
+        query = "rename table {} to {}".format(old_table_name, new_table_name)
+        self.executeQuery(query)
+
+    def dropTable(self, table_name):
+        query = "drop table {}".format(table_name)
+        self.executeQuery(query)
+
+    # value_dict = dictionary contenente i valori da modificare e le chiavi sono i nomi delle colonne
+    def updateTableWhere(self, table_name, value_dict, where_clause="", commit=False):
+        query = "UPDATE {} SET ".format(table_name)
+        query += ", ".join("{}='{}'".format(k, v) for k, v in value_dict.items())
+        if where_clause:
+            query += " where {}".format(where_clause)
+
+        self.executeQuery(query, commit)
+
+    # Da capire
+    def insertListOfDictsIntoTable(self, table_name, l, dt_cols=[], commit=False):
+        cols = sorted(list(l[0].keys()))
+
+        if dt_cols:
+            non_dt_cols = list(set(cols) - set(dt_cols))
+        else:
+            non_dt_cols = cols
+
+        cols = non_dt_cols + dt_cols
+
+        l = [[dic[col] for col in cols] for dic in l]
+
+        print("insertListOfDictsIntoTable l = {}".format(l))
+        self.insertListIntoTable(table_name, l, non_dt_cols, dt_cols)
+
+        if commit:
+            self.connection.commit()
+
+    def insertListIntoTable(self, table_name, l, non_dt_cols, dt_cols=[]):
+        '''
+        The first values of each row should represent non-datetime fields.
+        '''
+        print("insertListIntoTable l = {}".format(l))
+        print("insertListIntoTable dt_cols = {}".format(dt_cols))
+        brackets_str = ", ".join(["{}"] * len(non_dt_cols))
+        if dt_cols:
+            brackets_str += ", "
+            brackets_str += ", ".join(["to_timestamp({}, 'yyyy-MM-dd HH24:mi:ss')"] * len(dt_cols))
+        n_cols = len(dt_cols) + len(non_dt_cols)
+        # brackets_str = brackets_str.format( *[":" + str( i + 1 ) for i in range( 0, n_cols )] )
+        brackets_str = brackets_str.format(*["?" for i in range(0, n_cols)])
+
+        cols_str = ", ".join(non_dt_cols + dt_cols)
+
+        query = "INSERT INTO {} ({}) VALUES ({})".format(table_name, cols_str, brackets_str)
+        print("insertListIntoTable query = {}".format(query))
+        print("insertListIntoTable cols_str = {}".format(cols_str))
+        print("insertListIntoTable brackets_str = {}".format(brackets_str))
+
+        self.executeMany(query, l)
+
+    def executeProcedure(self, procname, commit=False, parameters=None):
+        if self.connected:
+            procname = procname if ("." not in procname) else procname.split(".")[-1]
+            final_procname = "{}.{}".format(self.db_schema, procname)
+
+            proc_str = final_procname + "({})".format(",".join(parameters) if parameters else "")
+            if self.db_type in (self.DB_TYPE_POSTGRES, self.DB_TYPE_ORACLE):
+                procedure_query = "CALL {}".format(proc_str)
+
+            cursor = self.connection.cursor()
+            try:
+                cursor.execute(procedure_query)
+            except Exception as e:
+                self.connection.rollback()
+                raise
+            else:
+                self.connection.commit() if commit else None
+            finally:
+                cursor.close()
+        else:
+            pass

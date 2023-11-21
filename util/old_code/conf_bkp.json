@@ -1,0 +1,136 @@
+{
+	"debug": {
+		"write_operations": true,
+		"print": true,
+		"timing_and_profile": false
+	},
+	"app": {
+		"name": "Ztl Generali",
+		"code" : -1,
+		"exit_code" : 0,
+		"validity_minutes": 5,
+		"continue_if_except" : false,
+		"stop_and_continue_if_except": false,
+		"createhivetable": false,
+		"readdata_threaded" : false,
+		"builddataframe_threaded": false,
+		"writedatatohdfs_threaded": false,
+		"builddataframe_union": false,
+		"builddataframe_union_limit_df_size": -1,
+		"writedatatohive_threaded": false,
+		"writedatatodb_threaded" : false,
+		"max_pool_thread" : 3,
+		"db_logger": true,
+		"init_spark": true
+	},
+	"db_log": {
+		"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"log": {
+		"filename": "ztl_generali%Y%m%d%H%M%S%f.log",
+		"local_folder": "/tmp",
+		"remote_folder": "/Projects/rsm/Ingestion/test/logs/ZtlGenerali/%Y/%m/%d/%H"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/ojdbc8.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar",
+		"spark.executor.extraClassPath": "c:/temp/ojdbc8.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar"
+	},
+	"common": {
+		"service": {
+			"ingestion": {
+				"db": {
+					"spark": true,
+					"mode": "overwrite"
+				},
+				"hive": {
+					"db": "rsm",
+					"mode": "append"
+				}
+			}
+		}
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "remote",
+				"url": "spark:jdbc:oracle://127.0.0.1:1521/ORCLCDB",
+				"param": {
+					"table" : "CATASTO_GALLERIE_SOURCE",
+                    "query" : "(SELECT INGESTION.CATASTO_GALLERIE_SOURCE.*, SDO_UTIL.TO_WKTGEOMETRY(INGESTION.CATASTO_GALLERIE_SOURCE.GEOM_32632) GEOM2 FROM INGESTION.CATASTO_GALLERIE_SOURCE)",
+					"schema" : "INGESTION",
+					"user": "ingestion",
+					"password": "ingestion",
+					"service": "xe",
+					"driver": "oracle.jdbc.driver.OracleDriver",
+					"jar_filepath": "ojdbc8.jar"
+				}
+			},
+			{
+				"id_source": "local",
+				"url": "spark:jdbc:oracle://127.0.0.1:1521/ORCLCDB",
+				"param": {
+					"table" : "CATASTO_GALLERIE",
+					"query" : "(SELECT INGESTION.CATASTO_GALLERIE.*, SDO_UTIL.TO_WKTGEOMETRY(INGESTION.CATASTO_GALLERIE.GEOM_32632) GEOM2 FROM INGESTION.CATASTO_GALLERIE)",
+					"schema" : "INGESTION",
+					"user": "ingestion",
+					"password": "ingestion",
+					"service": "xe",
+					"driver": "oracle.jdbc.driver.OracleDriver",
+					"jar_filepath": "ojdbc8.jar"
+				}
+			}
+		],
+		"DataProcess": {
+			"primary_key": ["KEY", "IDS_M1"]
+		},
+		"DataStoring": [
+			{
+				"id_storable": "1_",
+				"url": "spark:jdbc:oracle://10.64.20.10:1521/dssdbsvi",
+				"param": {
+					"mode" : "append",
+					"table" : "CATASTO_GALLERIE_TMP",
+					"schema" : "geodss_dev",
+					"user": "geodss_dev",
+					"password": "EndpointS3cur1t1",
+					"service": "xe",
+					"driver": "oracle.jdbc.driver.OracleDriver",
+					"jar_filepath": "ojdbc8.jar"
+				}
+			},
+			{
+				"id_storable": "xxx",
+				"url" : "jdbc:impala://10.206.227.254:21050/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "com.cloudera.impala.jdbc41.Driver",
+					"jar_filepath" : "ImpalaJDBC41.jar"
+				}
+			},
+			{
+				"id_storable": "xxx",
+				"url" : "jdbc:postgresql://10.206.227.231:5432/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "org.postgresql.Driver",
+					"user" : "drivebelt",
+					"password" : "4lm42021",
+					"jar_filepath" : "postgresql-42.2.14.jar"
+				}
+			}
+		]
+	},
+    "var":{}
+}

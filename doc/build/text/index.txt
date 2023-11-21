@@ -1,0 +1,12 @@
+Welcome to PAT’s documentation!
+*******************************
+
+
+Indices and tables
+******************
+
+* Indice
+
+* Indice dei moduli
+
+* Cerca

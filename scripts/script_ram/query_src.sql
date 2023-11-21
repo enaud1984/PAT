@@ -1,0 +1,1 @@
+(SELECT INGESTION.${env.db_table_source}.*, SDO_UTIL.TO_WKTGEOMETRY(INGESTION.${env.db_table_source}.GEOM_32632) GEOM2 FROM INGESTION.${env.db_table_source})

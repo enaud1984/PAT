@@ -1,0 +1,103 @@
+import fsspec
+
+try:
+    from confluent_kafka import Consumer
+except Exception:
+    print("No confluent_kafka library installed for Kafka Connection")
+
+from fsspec import AbstractFileSystem
+import urllib.parse as urlparse
+from urllib.parse import parse_qs
+
+
+class Kafka(AbstractFileSystem):
+    # tempdir = str(tempfile.gettempdir())
+    protocol = "kafka"
+
+    def __init__(
+            self,
+            request_url,
+            security=None,
+            request_ca_location=None,
+            request_certificate_location=None,
+            request_key_location=None,
+            offsetreset='earliest',
+            autocommit=True,
+
+            **kwargs,
+    ):
+        if self._cached:
+            return
+        super(Kafka, self).__init__(**kwargs)
+
+        self.request_url = request_url
+        self.security = security
+        self.request_ca_location = request_ca_location
+        self.request_certificate_location = request_certificate_location
+        self.request_key_location = request_key_location
+        self.offsetreset = offsetreset
+        self.autocommit = autocommit
+
+        parsed = urlparse.urlparse(self.request_url)
+        self.topic = parse_qs(parsed.query)["topic"][0]
+        group_id = parse_qs(parsed.query)["group_id"][0] if "group_id" in parse_qs(parsed.query) else None
+        broker = parsed.netloc
+        self.conf_kafka = {'bootstrap.servers': broker}
+        if group_id:
+            self.conf_kafka['group.id'] = group_id
+        if self.security:
+            self.conf_kafka['security.protocol'] = self.security
+        if self.request_ca_location:
+            self.conf_kafka['ssl.ca.location'] = self.request_ca_location
+        if self.request_certificate_location:
+            self.conf_kafka['ssl.certificate.location'] = self.request_certificate_location
+        if self.request_key_location:
+            self.conf_kafka['ssl.key.location'] = self.request_key_location
+        if self.offsetreset:
+            self.conf_kafka['auto.offset.reset'] = self.offsetreset
+        if self.autocommit:
+            self.conf_kafka['enable.auto.commit'] = self.autocommit
+
+        self._connect()
+
+    def _connect(self):
+        # request_url = "kafka-ssl://broker_host:broker_port?topic=topic_name&group_id=group_id_name"
+
+        self.consumer = Consumer(self.conf_kafka)
+        self.consumer.subscribe([self.topic])
+
+    def _open(
+            self,
+            path,
+            num_messages=50000,
+            timeout=10,
+            **kwargs,
+    ):
+        listMsg = self.consumer.consume(num_messages=50000, timeout=10)
+        self.consumer.close()
+
+        kafka_msg = KafkaMsg(listMsg)
+
+        return kafka_msg
+
+    @staticmethod
+    def _get_kwargs_from_urls(urlpath):
+        return {"request_url": urlpath}
+
+
+class KafkaMsg:
+
+    def __init__(self, listMsg):
+        self.listMsg = listMsg
+
+    def read(self):
+        ret = []
+        for msg in self.listMsg:
+            ret.append({msg.key().decode('utf-8'): msg.value().decode('utf-8')})
+        return ret
+
+    def close(self):
+        pass
+
+
+fsspec.register_implementation("kafka", Kafka, clobber=True, errtxt=None)

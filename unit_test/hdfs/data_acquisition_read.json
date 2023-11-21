@@ -1,0 +1,16 @@
+{
+  "op": "assignment",
+  "end": "24:00",
+  "start": "00:00",
+  "time_agg": 5,
+  "description": "simulazione del 2022-01-14",
+  "time_step_s": 2,
+  "lane_dynamic": true,
+  "simulation_id": 4,
+  "odestimation_date": "2022-01-15",
+  "network_highway": "1",
+  "optimized_speed": true,
+  "running": false,
+  "descr_result": "OK",
+  "highway_type": "1"
+}

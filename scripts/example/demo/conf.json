@@ -1,0 +1,81 @@
+{
+	"app": {
+		"name": "demo",
+		"validity_minutes": 1440,
+		"init_spark": true
+	},
+	"db_log_jaydebeapi": {
+		"url":"jdbc:postgresql://localhost:5432/postgres_db",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "postgres",
+		"password" : "postgres",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"db_log_sql_alchemy": {
+		"url":"postgresql://localhost:5432/postgres_db",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "postgres",
+		"password" : "postgres",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"db_log": {
+		"url":"postgresql://localhost:5432/postgres_db",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "postgres",
+		"password" : "postgres",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar",
+		"spark.executor.extraClassPath": "c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar"
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "hdfs",
+				"url": "ftp://localhost:8021/te/te_14800.json",
+
+				"param": {
+					"username": "pippo",
+					"password": "pippo"
+				}
+			}
+		],
+		"DataAcquisitionWrite": [
+			{
+				"id_source": "hdfs",
+				"url": "ftp://localhost:8021/sem",
+				"param": {
+					"username": "pippo",
+					"password": "pippo"
+				}
+			}
+		],
+		"DataProcess": [
+			{}
+		],
+		"DataStoring": [
+			{
+				"id_storable": "impala",
+				"url": "spark:jdbc:postgresql://localhost:5432/postgres_db",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "test_db",
+					"mode" : "append",
+					"driver" : "org.postgresql.Driver",
+					"user" : "postgres",
+					"password" : "postgres",
+					"jar_filepath" : "postgresql-42.2.14.jar"
+				}
+			}
+		]
+	}
+}

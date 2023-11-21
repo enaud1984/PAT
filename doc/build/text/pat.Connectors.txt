@@ -1,0 +1,1717 @@
+pat.Connectors package
+**********************
+
+
+Submodules
+==========
+
+
+pat.Connectors.FTPConnector module
+==================================
+
+
+pat.Connectors.KafkaConnector module
+====================================
+
+class pat.Connectors.KafkaConnector.Kafka(*args, **kwargs)
+
+      Basi: "fsspec.spec.AbstractFileSystem"
+
+   protocol = 'kafka'
+
+class pat.Connectors.KafkaConnector.KafkaMsg(listMsg)
+
+      Basi: "object"
+
+   close()
+
+   read()
+
+
+pat.Connectors.SoapConnector module
+===================================
+
+class pat.Connectors.SoapConnector.MyTrasp(cache=None, timeout=300, operation_timeout=None, session=None)
+
+      Basi: "zeep.transports.Transport"
+
+   post_xml(address, envelope, headers)
+
+      Post the envelope xml element to the given address with the
+      headers.
+
+      This method is intended to be overriden if you want to customize
+      the serialization of the xml element. By default the body is
+      formatted and encoded as utf-8. See
+      "zeep.wsdl.utils.etree_to_string".
+
+   res_xml = None
+
+class pat.Connectors.SoapConnector.Soap(*args, **kwargs)
+
+      Basi: "fsspec.spec.AbstractFileSystem"
+
+   protocol = 'soap'
+
+class pat.Connectors.SoapConnector.SoapMsg(data)
+
+      Basi: "object"
+
+   close()
+
+   read()
+
+
+Module contents
+===============
+
+class pat.Connectors.AbstractFileSystem(*args, **kwargs)
+
+      Basi: "object"
+
+   An abstract super-class for pythonic file-systems
+
+   Implementations are expected to be compatible with or, better,
+   subclass from here.
+
+   async_impl = False
+
+   blocksize = 4194304
+
+   cachable = True
+
+   cat(path, recursive=False, on_error='raise', **kwargs)
+
+      Fetch (potentially multiple) paths” contents
+
+      Parametri:
+         * **recursive** (*bool*) – If True, assume the path(s) are
+           directories, and get all the contained files
+
+         * **on_error** (*"raise"**, **"omit"**, **"return"*) – If
+           raise, an underlying exception will be raised (converted to
+           KeyError if the type is in self.missing_exceptions); if
+           omit, keys with exception will simply not be included in
+           the output; if «return», all keys are included in the
+           output, but the value will be bytes or an exception
+           instance.
+
+         * **kwargs** (*passed to cat_file*) –
+
+      Ritorna:
+         * **dict of {path** (*contents} if there are multiple paths*)
+
+         * *or the path has been otherwise expanded*
+
+   cat_file(path, start=None, end=None, **kwargs)
+
+      Get the content of a file
+
+      Parametri:
+         * **path** (*URL of file on this filesystems*) –
+
+         * **start** (*int*) – Bytes limits of the read. If negative,
+           backwards from end, like usual python slices. Either can be
+           None for start or end of file, respectively
+
+         * **end** (*int*) – Bytes limits of the read. If negative,
+           backwards from end, like usual python slices. Either can be
+           None for start or end of file, respectively
+
+         * **kwargs** (passed to "open()".) –
+
+   cat_ranges(paths, starts, ends, max_gap=None, **kwargs)
+
+   checksum(path)
+
+      Unique value for current version of file
+
+      If the checksum is the same from one moment to another, the
+      contents are guaranteed to be the same. If the checksum changes,
+      the contents *might* have changed.
+
+      This should normally be overridden; default will probably
+      capture creation/modification timestamp (which would be good) or
+      maybe access timestamp (which would be bad)
+
+   classmethod clear_instance_cache()
+
+      Clear the cache of filesystem instances.
+
+      -[ Notes ]-
+
+      Unless overridden by setting the "cachable" class attribute to
+      False, the filesystem class stores a reference to newly created
+      instances. This prevents Python’s normal rules around garbage
+      collection from working, since the instances refcount will not
+      drop to zero until "clear_instance_cache" is called.
+
+   copy(path1, path2, recursive=False, on_error=None, **kwargs)
+
+      Copy within two locations in the filesystem
+
+      on_error : «raise», «ignore»
+         If raise, any not-found exceptions will be raised; if ignore
+         any not-found exceptions will cause the path to be skipped;
+         defaults to raise unless recursive is true, where the default
+         is ignore
+
+   cp(path1, path2, **kwargs)
+
+      Alias of *AbstractFileSystem.copy*.
+
+   cp_file(path1, path2, **kwargs)
+
+   created(path)
+
+      Return the created timestamp of a file as a datetime.datetime
+
+   classmethod current()
+
+      Return the most recently created FileSystem
+
+      If no instance has been created, then create one with defaults
+
+   delete(path, recursive=False, maxdepth=None)
+
+      Alias of *AbstractFileSystem.rm*.
+
+   disk_usage(path, total=True, maxdepth=None, **kwargs)
+
+      Alias of *AbstractFileSystem.du*.
+
+   download(rpath, lpath, recursive=False, **kwargs)
+
+      Alias of *AbstractFileSystem.get*.
+
+   du(path, total=True, maxdepth=None, **kwargs)
+
+      Space used by files within a path
+
+      Parametri:
+         * **path** (*str*) –
+
+         * **total** (*bool*) – whether to sum all the file sizes
+
+         * **maxdepth** (*int** or **None*) – maximum number of
+           directory levels to descend, None for unlimited.
+
+         * **kwargs** (passed to "ls") –
+
+      Ritorna:
+         * **Dict of {fn** (*size} if total=False, or int otherwise,
+           where numbers*)
+
+         * *refer to bytes used.*
+
+   end_transaction()
+
+      Finish write transaction, non-context version
+
+   exists(path, **kwargs)
+
+      Is there a file at the given path
+
+   expand_path(path, recursive=False, maxdepth=None)
+
+      Turn one or more globs or directories into a list of all
+      matching paths to files or directories.
+
+   find(path, maxdepth=None, withdirs=False, **kwargs)
+
+      List all files below path.
+
+      Like posix "find" command without conditions
+
+      Parametri:
+         * **path** (*str*) –
+
+         * **maxdepth** (*int** or **None*) – If not None, the maximum
+           number of levels to descend
+
+         * **withdirs** (*bool*) – Whether to include directory paths
+           in the output. This is True when used by glob, but users
+           usually only want files.
+
+         * **ls.** (*kwargs are passed to*) –
+
+   static from_json(blob)
+
+      Recreate a filesystem instance from JSON representation
+
+      See ".to_json()" for the expected structure of the input
+
+      Parametri:
+         **blob** (*str*) –
+
+      Tipo di ritorno:
+         file system instance, not necessarily of this particular
+         class.
+
+   get(rpath, lpath, recursive=False, callback=<fsspec.callbacks.NoOpCallback object>, **kwargs)
+
+      Copy file(s) to local.
+
+      Copies a specific file or tree of files (if recursive=True). If
+      lpath ends with a «/», it will be assumed to be a directory, and
+      target files will go within. Can submit a list of paths, which
+      may be glob-patterns and will be expanded.
+
+      Calls get_file for each source.
+
+   get_file(rpath, lpath, callback=<fsspec.callbacks.NoOpCallback object>, **kwargs)
+
+      Copy single remote file to local
+
+   get_mapper(root, check=False, create=False)
+
+      Create key/value store based on this file-system
+
+      Makes a MutableMapping interface to the FS at the given root
+      path. See "fsspec.mapping.FSMap" for further details.
+
+   glob(path, **kwargs)
+
+      Find files by glob-matching.
+
+      If the path ends with “/” and does not contain «*», it is
+      essentially the same as "ls(path)", returning only files.
+
+      We support ""**"", ""?"" and ""[..]"". We do not support ^ for
+      pattern negation.
+
+      Search path names that contain embedded characters special to
+      this implementation of glob may not produce expected results;
+      e.g., “foo/bar/*starredfilename*”.
+
+      kwargs are passed to "ls".
+
+   head(path, size=1024)
+
+      Get the first "size" bytes from file
+
+   info(path, **kwargs)
+
+      Give details of entry at path
+
+      Returns a single dictionary, with exactly the same information
+      as "ls" would with "detail=True".
+
+      The default implementation should calls ls and could be
+      overridden by a shortcut. kwargs are passed on to "`ls()".
+
+      Some file systems might not be able to measure the file’s size,
+      in which case, the returned dict will include "'size': None".
+
+      Ritorna:
+         * **dict with keys** (*name (full path in the FS), size (in
+           bytes), type (file,*)
+
+         * *directory, or something else) and other FS-specific keys.*
+
+   invalidate_cache(path=None)
+
+      Discard any cached directory information
+
+      Parametri:
+         **path** (*string** or **None*) – If None, clear all listings
+         cached else listings at or under given path.
+
+   isdir(path)
+
+      Is this entry directory-like?
+
+   isfile(path)
+
+      Is this entry file-like?
+
+   lexists(path, **kwargs)
+
+      If there is a file at the given path (including broken links)
+
+   listdir(path, detail=True, **kwargs)
+
+      Alias of *AbstractFileSystem.ls*.
+
+   ls(path, detail=True, **kwargs)
+
+      List objects at path.
+
+      This should include subdirectories and files at that location.
+      The difference between a file and a directory must be clear when
+      details are requested.
+
+      The specific keys, or perhaps a FileInfo class, or similar, is
+      TBD, but must be consistent across implementations. Must
+      include:
+
+      * full path to the entry (without protocol)
+
+      * size of the entry, in bytes. If the value cannot be
+        determined, will be "None".
+
+      * type of entry, «file», «directory» or other
+
+      Additional information may be present, aproriate to the file-
+      system, e.g., generation, checksum, etc.
+
+      May use refresh=True|False to allow use of self._ls_from_cache
+      to check for a saved listing and avoid calling the backend. This
+      would be common where listing may be expensive.
+
+      Parametri:
+         * **path** (*str*) –
+
+         * **detail** (*bool*) – if True, gives a list of
+           dictionaries, where each is the same as the result of
+           "info(path)". If False, gives a list of paths (str).
+
+         * **kwargs** (*may have additional backend-specific
+           options**, **such as version*) – information
+
+      Ritorna:
+         * *List of strings if detail is False, or list of directory
+           information*
+
+         * *dicts if detail is True.*
+
+   makedir(path, create_parents=True, **kwargs)
+
+      Alias of *AbstractFileSystem.mkdir*.
+
+   makedirs(path, exist_ok=False)
+
+      Recursively make directories
+
+      Creates directory at path and any intervening required
+      directories. Raises exception if, for instance, the path already
+      exists but is a file.
+
+      Parametri:
+         * **path** (*str*) – leaf directory name
+
+         * **exist_ok** (*bool** (**False**)*) – If False, will error
+           if the target already exists
+
+   mkdir(path, create_parents=True, **kwargs)
+
+      Create directory entry at path
+
+      For systems that don’t have true directories, may create an for
+      this instance only and not touch the real filesystem
+
+      Parametri:
+         * **path** (*str*) – location
+
+         * **create_parents** (*bool*) – if True, this is equivalent
+           to "makedirs"
+
+         * **kwargs** – may be permissions, etc.
+
+   mkdirs(path, exist_ok=False)
+
+      Alias of *AbstractFileSystem.makedirs*.
+
+   modified(path)
+
+      Return the modified timestamp of a file as a datetime.datetime
+
+   move(path1, path2, **kwargs)
+
+      Alias of *AbstractFileSystem.mv*.
+
+   mv(path1, path2, recursive=False, maxdepth=None, **kwargs)
+
+      Move file(s) from one location to another
+
+   open(path, mode='rb', block_size=None, cache_options=None, compression=None, **kwargs)
+
+      Return a file-like object from the filesystem
+
+      The resultant instance must function correctly in a context
+      "with" block.
+
+      Parametri:
+         * **path** (*str*) – Target file
+
+         * **mode** (*str like 'rb'**, **'w'*) – See builtin "open()"
+
+         * **block_size** (*int*) – Some indication of buffering -
+           this is a value in bytes
+
+         * **cache_options** (*dict**, **optional*) – Extra arguments
+           to pass through to the cache.
+
+         * **compression** (*string** or **None*) – If given, open
+           file using compression codec. Can either be a compression
+           name (a key in "fsspec.compression.compr") or «infer» to
+           guess the compression from the filename suffix.
+
+         * **encoding** (*passed on to TextIOWrapper for text mode*) –
+
+         * **errors** (*passed on to TextIOWrapper for text mode*) –
+
+         * **newline** (*passed on to TextIOWrapper for text mode*) –
+
+   pipe(path, value=None, **kwargs)
+
+      Put value into path
+
+      (counterpart to "cat")
+
+      Parametri:
+         * **path** (*string** or **dict**(**str**, **bytes**)*) – If
+           a string, a single remote location to put "value" bytes; if
+           a dict, a mapping of {path: bytesvalue}.
+
+         * **value** (*bytes**, **optional*) – If using a single path,
+           these are the bytes to put there. Ignored if "path" is a
+           dict
+
+   pipe_file(path, value, **kwargs)
+
+      Set the bytes of given file
+
+   protocol = 'abstract'
+
+   put(lpath, rpath, recursive=False, callback=<fsspec.callbacks.NoOpCallback object>, **kwargs)
+
+      Copy file(s) from local.
+
+      Copies a specific file or tree of files (if recursive=True). If
+      rpath ends with a «/», it will be assumed to be a directory, and
+      target files will go within.
+
+      Calls put_file for each source.
+
+   put_file(lpath, rpath, callback=<fsspec.callbacks.NoOpCallback object>, **kwargs)
+
+      Copy single file to remote
+
+   read_block(fn, offset, length, delimiter=None)
+
+      Read a block of bytes from
+
+      Starting at "offset" of the file, read "length" bytes.  If
+      "delimiter" is set then we ensure that the read starts and stops
+      at delimiter boundaries that follow the locations "offset" and
+      "offset + length".  If "offset" is zero then we start at zero.
+      The bytestring returned WILL include the end delimiter string.
+
+      If offset+length is beyond the eof, reads to eof.
+
+      Parametri:
+         * **fn** (*string*) – Path to filename
+
+         * **offset** (*int*) – Byte offset to start read
+
+         * **length** (*int*) – Number of bytes to read
+
+         * **delimiter** (*bytes** (**optional**)*) – Ensure reading
+           starts and stops at delimiter bytestring
+
+      -[ Esempi ]-
+
+      >>> fs.read_block('data/file.csv', 0, 13)  
+      b'Alice, 100\nBo'
+      >>> fs.read_block('data/file.csv', 0, 13, delimiter=b'\n')  
+      b'Alice, 100\nBob, 200\n'
+
+      Use "length=None" to read to the end of the file. >>>
+      fs.read_block(“data/file.csv”, 0, None, delimiter=b”n”)  #
+      doctest: +SKIP b’Alice, 100nBob, 200nCharlie, 300”
+
+      Vedi anche: "utils.read_block"
+
+   rename(path1, path2, **kwargs)
+
+      Alias of *AbstractFileSystem.mv*.
+
+   rm(path, recursive=False, maxdepth=None)
+
+      Delete files.
+
+      Parametri:
+         * **path** (*str** or **list of str*) – File(s) to delete.
+
+         * **recursive** (*bool*) – If file(s) are directories,
+           recursively delete contents and then also remove the
+           directory
+
+         * **maxdepth** (*int** or **None*) – Depth to pass to walk
+           for finding files to delete, if recursive. If None, there
+           will be no limit and infinite recursion may be possible.
+
+   rm_file(path)
+
+      Delete a file
+
+   rmdir(path)
+
+      Remove a directory, if empty
+
+   root_marker = ''
+
+   sep = '/'
+
+   sign(path, expiration=100, **kwargs)
+
+      Create a signed URL representing the given path
+
+      Some implementations allow temporary URLs to be generated, as a
+      way of delegating credentials.
+
+      Parametri:
+         * **path** (*str*) – The path on the filesystem
+
+         * **expiration** (*int*) – Number of seconds to enable the
+           URL for (if supported)
+
+      Ritorna:
+         **URL** – The signed URL
+
+      Tipo di ritorno:
+         str
+
+      :raises NotImplementedError : if method is not implemented for a
+      filesystem:
+
+   size(path)
+
+      Size in bytes of file
+
+   sizes(paths)
+
+      Size in bytes of each file in a list of paths
+
+   start_transaction()
+
+      Begin write transaction for deferring files, non-context version
+
+   stat(path, **kwargs)
+
+      Alias of *AbstractFileSystem.info*.
+
+   tail(path, size=1024)
+
+      Get the last "size" bytes from file
+
+   to_json()
+
+      JSON representation of this filesystem instance
+
+      Ritorna:
+         **str** – protocol (text name of this class’s protocol, first
+         one in case of multiple), args (positional args, usually
+         empty), and all other kwargs as their own keys.
+
+      Tipo di ritorno:
+         JSON structure with keys cls (the python location of this
+         class),
+
+   touch(path, truncate=True, **kwargs)
+
+      Create empty file, or update timestamp
+
+      Parametri:
+         * **path** (*str*) – file location
+
+         * **truncate** (*bool*) – If True, always set file size to 0;
+           if False, update timestamp and leave file unchanged, if
+           backend allows this
+
+   property transaction
+
+      A context within which files are committed together upon exit
+
+      Requires the file class to implement *.commit()* and
+      *.discard()* for the normal and exception cases.
+
+   ukey(path)
+
+      Hash of file properties, to tell if it has changed
+
+   upload(lpath, rpath, recursive=False, **kwargs)
+
+      Alias of *AbstractFileSystem.put*.
+
+   walk(path, maxdepth=None, **kwargs)
+
+      Return all files belows path
+
+      List all files, recursing into subdirectories; output is
+      iterator-style, like "os.walk()". For a simple list of files,
+      "find()" is available.
+
+      Note that the «files» outputted will include anything that is
+      not a directory, such as links.
+
+      Parametri:
+         * **path** (*str*) – Root to recurse into
+
+         * **maxdepth** (*int*) – Maximum recursion depth. None means
+           limitless, but not recommended on link-based file-systems.
+
+         * **kwargs** (passed to "ls") –
+
+class pat.Connectors.Client(wsdl, wsse=None, transport=None, service_name=None, port_name=None, plugins=None, settings=None)
+
+      Basi: "object"
+
+   The zeep Client.
+
+   Parametri:
+      * **wsdl** –
+
+      * **wsse** –
+
+      * **transport** – Custom transport class.
+
+      * **service_name** – The service name for the service binding.
+        Defaults to the first service in the WSDL document.
+
+      * **port_name** – The port name for the default binding.
+        Defaults to the first port defined in the service element in
+        the WSDL document.
+
+      * **plugins** – a list of Plugin instances
+
+      * **settings** – a zeep.Settings() object
+
+   bind(service_name: Optional[str] = None, port_name: Optional[str] = None)
+
+      Create a new ServiceProxy for the given service_name and
+      port_name.
+
+      The default ServiceProxy instance (*self.service*) always
+      referes to the first service/port in the wsdl Document.  Use
+      this when a specific port is required.
+
+   create_message(service, operation_name, *args, **kwargs)
+
+      Create the payload for the given operation.
+
+      Tipo di ritorno:
+         lxml.etree._Element
+
+   create_service(binding_name, address)
+
+      Create a new ServiceProxy for the given binding name and
+      address.
+
+      Parametri:
+         * **binding_name** – The QName of the binding
+
+         * **address** – The address of the endpoint
+
+   get_element(name)
+
+      Return the element for the given qualified name.
+
+      Tipo di ritorno:
+         zeep.xsd.Element
+
+   get_type(name)
+
+      Return the type for the given qualified name.
+
+      Tipo di ritorno:
+         zeep.xsd.ComplexType or zeep.xsd.AnySimpleType
+
+   property namespaces
+
+   property service
+
+      The default ServiceProxy instance
+
+      Tipo di ritorno:
+         ServiceProxy
+
+   set_default_soapheaders(headers)
+
+      Set the default soap headers which will be automatically used on
+      all calls.
+
+      Note that if you pass custom soapheaders using a list then you
+      will also need to use that during the operations. Since mixing
+      these use cases isn’t supported (yet).
+
+   set_ns_prefix(prefix, namespace)
+
+      Set a shortcut for the given namespace.
+
+   type_factory(namespace)
+
+      Return a type factory for the given namespace.
+
+      Example:
+
+         factory = client.type_factory('ns0')
+         user = factory.User(name='John')
+
+      Tipo di ritorno:
+         Factory
+
+class pat.Connectors.Consumer
+
+      Basi: "object"
+
+   A high-level Apache Kafka consumer
+
+   Consumer(config)
+
+   Create a new Consumer instance using the provided configuration
+   *dict* (including properties and callback functions). See
+   *pythonclient_configuration* for more information.
+
+   Parametri:
+      **config** (*dict*) – Configuration properties. At a minimum,
+      "group.id" **must** be set and "bootstrap.servers" **should** be
+      set.
+
+   assign()
+
+      assign(partitions)
+
+      Set the consumer partition assignment to the provided list of
+      "TopicPartition" and start consuming.
+
+      Parametri:
+         **partitions** (*list**(**TopicPartition**)*) – List of
+         topic+partitions and optionally initial offsets to start
+         consuming from.
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   assignment()
+
+      Returns the current partition assignment.
+
+      Ritorna:
+         List of assigned topic+partitions.
+
+      Tipo di ritorno:
+         list(TopicPartition)
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   close()
+
+      Close down and terminate the Kafka Consumer.
+
+      Actions performed:
+
+      * Stops consuming.
+
+      * Commits offsets, unless the consumer property
+        “enable.auto.commit” is set to False.
+
+      * Leaves the consumer group.
+
+      Tipo di ritorno:
+         None
+
+   commit()
+
+      commit([message=None][, offsets=None][, asynchronous=True])
+
+      Commit a message or a list of offsets.
+
+      The "message" and "offsets" parameters are mutually exclusive.
+      If neither is set, the current partition assignment’s offsets
+      are used instead. Use this method to commit offsets if you have
+      “enable.auto.commit” set to False.
+
+      Parametri:
+         * **message** (*confluent_kafka.Message*) – Commit the
+           message’s offset+1. Note: By convention, committed offsets
+           reflect the next message to be consumed, **not** the last
+           message consumed.
+
+         * **offsets** (*list**(**TopicPartition**)*) – List of
+           topic+partitions+offsets to commit.
+
+         * **asynchronous** (*bool*) – If true, asynchronously commit,
+           returning None immediately. If False, the commit() call
+           will block until the commit succeeds or fails and the
+           committed offsets will be returned (on success). Note that
+           specific partitions may have failed and the .err field of
+           each partition should be checked for success.
+
+      Tipo di ritorno:
+         None|list(TopicPartition)
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   committed()
+
+      committed(partitions[, timeout=None])
+
+      Retrieve committed offsets for the specified partitions.
+
+      Parametri:
+         * **partitions** (*list**(**TopicPartition**)*) – List of
+           topic+partitions to query for stored offsets.
+
+         * **timeout** (*float*) – Request timeout (seconds).
+
+      Ritorna:
+         List of topic+partitions with offset and possibly error set.
+
+      Tipo di ritorno:
+         list(TopicPartition)
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   consume()
+
+      consume([num_messages=1][, timeout=-1])
+
+      Consumes a list of messages (possibly empty on timeout).
+      Callbacks may be executed as a side effect of calling this
+      method.
+
+      The application must check the returned "Message" object’s
+      "Message.error()" method to distinguish between proper messages
+      (error() returns None) and errors for each "Message" in the list
+      (see error().code() for specifics). If the enable.partition.eof
+      configuration property is set to True, partition EOF events will
+      also be exposed as Messages with error().code() set to
+      _PARTITION_EOF.
+
+      Parametri:
+         * **num_messages** (*int*) – The maximum number of messages
+           to return (default: 1).
+
+         * **timeout** (*float*) – The maximum time to block waiting
+           for message, event or callback (default: infinite (-1)).
+           (Seconds)
+
+      Ritorna:
+         A list of Message objects (possibly empty on timeout)
+
+      Tipo di ritorno:
+         list(Message)
+
+      Solleva:
+         * **RuntimeError** – if called on a closed consumer
+
+         * **KafkaError** – in case of internal error
+
+         * **ValueError** – if num_messages > 1M
+
+   consumer_group_metadata()
+
+      consumer_group_metadata()
+
+      Ritorna:
+         An opaque object representing the consumer’s current group
+         metadata for passing to the transactional producer’s
+         send_offsets_to_transaction() API.
+
+   get_watermark_offsets()
+
+      get_watermark_offsets(partition[, timeout=None][, cached=False])
+
+      Retrieve low and high offsets for the specified partition.
+
+      Parametri:
+         * **partition** (*TopicPartition*) – Topic+partition to
+           return offsets for.
+
+         * **timeout** (*float*) – Request timeout (seconds). Ignored
+           if cached=True.
+
+         * **cached** (*bool*) – Instead of querying the broker, use
+           cached information. Cached values: The low offset is
+           updated periodically (if statistics.interval.ms is set)
+           while the high offset is updated on each message fetched
+           from the broker for this partition.
+
+      Ritorna:
+         Tuple of (low,high) on success or None on timeout. The high
+         offset is the offset of the last message + 1.
+
+      Tipo di ritorno:
+         tuple(int,int)
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   incremental_assign()
+
+      incremental_assign(partitions)
+
+      Incrementally add the provided list of
+      :py:class:>>`<<TopicPartition`s to the current partition
+      assignment. This list must not contain duplicate entries, or any
+      entry corresponding to an already assigned partition. When a
+      COOPERATIVE assignor (i.e. incremental rebalancing) is being
+      used, this method may be used in the on_assign callback to
+      update the current assignment and specify start offsets. The
+      application should pass a list of partitions identical to the
+      list passed to the callback, even if the list is empty. Note
+      that if you do not call incremental_assign in your on_assign
+      handler, this will be done automatically and start offsets will
+      be the last committed offsets, or determined via the auto offset
+      reset policy (auto.offset.reset) if there are none. This method
+      may also be used outside the context of a rebalance callback.
+
+      Parametri:
+         **partitions** (*list**(**TopicPartition**)*) – List of
+         topic+partitions and optionally initial offsets to start
+         consuming from.
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   incremental_unassign()
+
+      incremental_unassign(partitions)
+
+      Incrementally remove the provided list of "TopicPartition" from
+      the current partition assignment. This list must not contain
+      dupliate entries and all entries specified must be part of the
+      current assignment. When a COOPERATIVE assignor (i.e.
+      incremental rebalancing) is being used, this method may be used
+      in the on_revoke or on_lost callback to update the current
+      assignment. The application should pass a list of partitions
+      identical to the list passed to the callback. This method may
+      also be used outside the context of a rebalance callback. The
+      value of the *TopicPartition* offset field is ignored by this
+      method.
+
+      Parametri:
+         **partitions** (*list**(**TopicPartition**)*) – List of
+         topic+partitions to remove from the current assignment.
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   list_topics()
+
+      list_topics([topic=None][, timeout=-1])
+
+      Request metadata from the cluster. This method provides the same
+      information as  listTopics(), describeTopics() and
+      describeCluster() in  the Java Admin client.
+
+      Parametri:
+         * **topic** (*str*) – If specified, only request information
+           about this topic, else return results for all topics in
+           cluster. Warning: If auto.create.topics.enable is set to
+           true on the broker and an unknown topic is specified, it
+           will be created.
+
+         * **timeout** (*float*) – The maximum response time before
+           timing out, or -1 for infinite timeout.
+
+      Tipo di ritorno:
+         ClusterMetadata
+
+      Raises:
+         KafkaException
+
+   offsets_for_times()
+
+      offsets_for_times(partitions[, timeout=None])
+
+      Look up offsets by timestamp for the specified partitions.
+
+      The returned offset for each partition is the earliest offset
+      whose timestamp is greater than or equal to the given timestamp
+      in the corresponding partition. If the provided timestamp
+      exceeds that of the last message in the partition, a value of -1
+      will be returned.
+
+         param list(TopicPartition) partitions:
+            topic+partitions with timestamps in the
+            TopicPartition.offset field.
+
+         param float timeout:
+            Request timeout (seconds).
+
+         returns:
+            List of topic+partition with offset field set and possibly
+            error set
+
+         rtype:
+            list(TopicPartition)
+
+         raises:
+            KafkaException
+
+         raises:
+            RuntimeError if called on a closed consumer
+
+   pause()
+
+      pause(partitions)
+
+      Pause consumption for the provided list of partitions.
+
+      Parametri:
+         **partitions** (*list**(**TopicPartition**)*) – List of
+         topic+partitions to pause.
+
+      Tipo di ritorno:
+         None
+
+      Raises:
+         KafkaException
+
+   poll()
+
+      poll([timeout=None])
+
+      Consumes a single message, calls callbacks and returns events.
+
+      The application must check the returned "Message" object’s
+      "Message.error()" method to distinguish between proper messages
+      (error() returns None), or an event or error (see error().code()
+      for specifics).
+
+      Parametri:
+         **timeout** (*float*) – Maximum time to block waiting for
+         message, event or callback (default: infinite (None
+         translated into -1 in the library)). (Seconds)
+
+      Ritorna:
+         A Message object or None on timeout
+
+      Tipo di ritorno:
+         "Message" or None
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   position()
+
+      position(partitions)
+
+      Retrieve current positions (offsets) for the specified
+      partitions.
+
+      Parametri:
+         **partitions** (*list**(**TopicPartition**)*) – List of
+         topic+partitions to return current offsets for. The current
+         offset is the offset of the last consumed message + 1.
+
+      Ritorna:
+         List of topic+partitions with offset and possibly error set.
+
+      Tipo di ritorno:
+         list(TopicPartition)
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   resume()
+
+      resume(partitions)
+
+      Resume consumption for the provided list of partitions.
+
+      Parametri:
+         **partitions** (*list**(**TopicPartition**)*) – List of
+         topic+partitions to resume.
+
+      Tipo di ritorno:
+         None
+
+      Raises:
+         KafkaException
+
+   seek()
+
+      seek(partition)
+
+      Set consume position for partition to offset. The offset may be
+      an absolute (>=0) or a logical offset ("OFFSET_BEGINNING"
+      et.al).
+
+      seek() may only be used to update the consume offset of an
+      actively consumed partition (i.e., after "assign()"), to set the
+      starting offset of partition not being consumed instead pass the
+      offset in an *assign()* call.
+
+      Parametri:
+         **partition** (*TopicPartition*) – Topic+partition+offset to
+         seek to.
+
+      Raises:
+         KafkaException
+
+   store_offsets()
+
+      store_offsets([message=None][, offsets=None])
+
+      Store offsets for a message or a list of offsets.
+
+      "message" and "offsets" are mutually exclusive. The stored
+      offsets will be committed according to “auto.commit.interval.ms”
+      or manual offset-less "commit()". Note that
+      “enable.auto.offset.store” must be set to False when using this
+      API.
+
+      Parametri:
+         * **message** (*confluent_kafka.Message*) – Store message’s
+           offset+1.
+
+         * **offsets** (*list**(**TopicPartition**)*) – List of
+           topic+partitions+offsets to store.
+
+      Tipo di ritorno:
+         None
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+   subscribe()
+
+      subscribe(topics[, on_assign=None][, on_revoke=None][, on_lost=None])
+
+         Set subscription to supplied list of topics This replaces a
+         previous subscription.
+
+         Regexp pattern subscriptions are supported by prefixing the
+         topic string with ""^"", e.g.:
+
+            consumer.subscribe(["^my_topic.*", "^another[0-9]-?[a-z]+$", "not_a_regex"])
+
+         Parametri:
+            * **topics** (*list**(**str**)*) – List of topics
+              (strings) to subscribe to.
+
+            * **on_assign** (*callable*) – callback to provide
+              handling of customized offsets on completion of a
+              successful partition re-assignment.
+
+            * **on_revoke** (*callable*) – callback to provide
+              handling of offset commits to a customized store on the
+              start of a rebalance operation.
+
+            * **on_lost** (*callable*) – callback to provide handling
+              in the case the partition assignment has been lost. If
+              not specified, lost partition events will be delivered
+              to on_revoke, if specified. Partitions that have been
+              lost may already be owned by other members in the group
+              and therefore committing offsets, for example, may fail.
+
+         Solleva:
+            **KafkaException** –
+
+         Raises:
+            RuntimeError if called on a closed consumer
+
+      on_assign(consumer, partitions)
+
+      on_revoke(consumer, partitions)
+
+      on_lost(consumer, partitions)
+
+         Parametri:
+            * **consumer** (*Consumer*) – Consumer instance.
+
+            * **partitions** (*list**(**TopicPartition**)*) – Absolute
+              list of partitions being assigned or revoked.
+
+   unassign()
+
+      Removes the current partition assignment and stops consuming.
+
+      Solleva:
+         * **KafkaException** –
+
+         * **RuntimeError** – if called on a closed consumer
+
+   unsubscribe()
+
+      Remove current subscription.
+
+      Raises:
+         KafkaException
+
+      Raises:
+         RuntimeError if called on a closed consumer
+
+exception pat.Connectors.Error
+
+      Basi: "Exception"
+
+class pat.Connectors.FTPFile(fs, path, mode='rb', block_size='default', autocommit=True, cache_type='readahead', cache_options=None, **kwargs)
+
+      Basi: "fsspec.spec.AbstractBufferedFile"
+
+   Interact with a remote FTP file with read/write buffering
+
+   commit()
+
+      Move from temp to final destination
+
+   discard()
+
+      Throw away temporary file
+
+class pat.Connectors.HTTPBasicAuth(username, password)
+
+      Basi: "requests.auth.AuthBase"
+
+   Attaches HTTP Basic Authentication to the given Request object.
+
+class pat.Connectors.Kafka(*args, **kwargs)
+
+      Basi: "fsspec.spec.AbstractFileSystem"
+
+   protocol = 'kafka'
+
+class pat.Connectors.KafkaMsg(listMsg)
+
+      Basi: "object"
+
+   close()
+
+   read()
+
+class pat.Connectors.MyTrasp(cache=None, timeout=300, operation_timeout=None, session=None)
+
+      Basi: "zeep.transports.Transport"
+
+   post_xml(address, envelope, headers)
+
+      Post the envelope xml element to the given address with the
+      headers.
+
+      This method is intended to be overriden if you want to customize
+      the serialization of the xml element. By default the body is
+      formatted and encoded as utf-8. See
+      "zeep.wsdl.utils.etree_to_string".
+
+   res_xml = None
+
+class pat.Connectors.Session
+
+      Basi: "requests.sessions.SessionRedirectMixin"
+
+   A Requests session.
+
+   Provides cookie persistence, connection-pooling, and configuration.
+
+   Basic Usage:
+
+      >>> import requests
+      >>> s = requests.Session()
+      >>> s.get('https://httpbin.org/get')
+      <Response [200]>
+
+   Or as a context manager:
+
+      >>> with requests.Session() as s:
+      ...     s.get('https://httpbin.org/get')
+      <Response [200]>
+
+   auth
+
+      Default Authentication tuple or object to attach to "Request".
+
+   cert
+
+      SSL client certificate default, if String, path to ssl client
+      cert file (.pem). If Tuple, (“cert”, “key”) pair.
+
+   close()
+
+      Closes all adapters and as such the session
+
+   cookies
+
+      A CookieJar containing all currently outstanding cookies set on
+      this session. By default it is a "RequestsCookieJar", but may be
+      any other "cookielib.CookieJar" compatible object.
+
+   delete(url, **kwargs)
+
+      Sends a DELETE request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   get(url, **kwargs)
+
+      Sends a GET request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   get_adapter(url)
+
+      Returns the appropriate connection adapter for the given URL.
+
+      Tipo di ritorno:
+         requests.adapters.BaseAdapter
+
+   head(url, **kwargs)
+
+      Sends a HEAD request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   headers
+
+      A case-insensitive dictionary of headers to be sent on each
+      "Request" sent from this "Session".
+
+   hooks
+
+      Event-handling hooks.
+
+   max_redirects
+
+      Maximum number of redirects allowed. If the request exceeds this
+      limit, a "TooManyRedirects" exception is raised. This defaults
+      to requests.models.DEFAULT_REDIRECT_LIMIT, which is 30.
+
+   merge_environment_settings(url, proxies, stream, verify, cert)
+
+      Check the environment and merge it with some settings.
+
+      Tipo di ritorno:
+         dict
+
+   mount(prefix, adapter)
+
+      Registers a connection adapter to a prefix.
+
+      Adapters are sorted in descending order by prefix length.
+
+   options(url, **kwargs)
+
+      Sends a OPTIONS request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   params
+
+      Dictionary of querystring data to attach to each "Request". The
+      dictionary values may be lists for representing multivalued
+      query parameters.
+
+   patch(url, data=None, **kwargs)
+
+      Sends a PATCH request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * **data** – (optional) Dictionary, list of tuples, bytes, or
+           file-like object to send in the body of the "Request".
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   post(url, data=None, json=None, **kwargs)
+
+      Sends a POST request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * **data** – (optional) Dictionary, list of tuples, bytes, or
+           file-like object to send in the body of the "Request".
+
+         * **json** – (optional) json to send in the body of the
+           "Request".
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   prepare_request(request)
+
+      Constructs a "PreparedRequest" for transmission and returns it.
+      The "PreparedRequest" has settings merged from the "Request"
+      instance and those of the "Session".
+
+      Parametri:
+         **request** – "Request" instance to prepare with this
+         session’s settings.
+
+      Tipo di ritorno:
+         requests.PreparedRequest
+
+   proxies
+
+      Dictionary mapping protocol or protocol and host to the URL of
+      the proxy (e.g. {“http”: “foo.bar:3128”, “http://host.name”:
+      “foo.bar:4012”}) to be used on each "Request".
+
+   put(url, data=None, **kwargs)
+
+      Sends a PUT request. Returns "Response" object.
+
+      Parametri:
+         * **url** – URL for the new "Request" object.
+
+         * **data** – (optional) Dictionary, list of tuples, bytes, or
+           file-like object to send in the body of the "Request".
+
+         * ****kwargs** – Optional arguments that "request" takes.
+
+      Tipo di ritorno:
+         requests.Response
+
+   request(method, url, params=None, data=None, headers=None, cookies=None, files=None, auth=None, timeout=None, allow_redirects=True, proxies=None, hooks=None, stream=None, verify=None, cert=None, json=None)
+
+      Constructs a "Request", prepares it and sends it. Returns
+      "Response" object.
+
+      Parametri:
+         * **method** – method for the new "Request" object.
+
+         * **url** – URL for the new "Request" object.
+
+         * **params** – (optional) Dictionary or bytes to be sent in
+           the query string for the "Request".
+
+         * **data** – (optional) Dictionary, list of tuples, bytes, or
+           file-like object to send in the body of the "Request".
+
+         * **json** – (optional) json to send in the body of the
+           "Request".
+
+         * **headers** – (optional) Dictionary of HTTP Headers to send
+           with the "Request".
+
+         * **cookies** – (optional) Dict or CookieJar object to send
+           with the "Request".
+
+         * **files** – (optional) Dictionary of "'filename': file-
+           like-objects" for multipart encoding upload.
+
+         * **auth** – (optional) Auth tuple or callable to enable
+           Basic/Digest/Custom HTTP Auth.
+
+         * **timeout** (*float** or **tuple*) – (optional) How long to
+           wait for the server to send data before giving up, as a
+           float, or a *(connect timeout, read timeout)* tuple.
+
+         * **allow_redirects** (*bool*) – (optional) Set to True by
+           default.
+
+         * **proxies** – (optional) Dictionary mapping protocol or
+           protocol and hostname to the URL of the proxy.
+
+         * **stream** – (optional) whether to immediately download the
+           response content. Defaults to "False".
+
+         * **verify** – (optional) Either a boolean, in which case it
+           controls whether we verify the server’s TLS certificate, or
+           a string, in which case it must be a path to a CA bundle to
+           use. Defaults to "True". When set to "False", requests will
+           accept any TLS certificate presented by the server, and
+           will ignore hostname mismatches and/or expired
+           certificates, which will make your application vulnerable
+           to man-in-the-middle (MitM) attacks. Setting verify to
+           "False" may be useful during local development or testing.
+
+         * **cert** – (optional) if String, path to ssl client cert
+           file (.pem). If Tuple, (“cert”, “key”) pair.
+
+      Tipo di ritorno:
+         requests.Response
+
+   send(request, **kwargs)
+
+      Send a given PreparedRequest.
+
+      Tipo di ritorno:
+         requests.Response
+
+   stream
+
+      Stream response content default.
+
+   trust_env
+
+      Trust environment settings for proxy configuration, default
+      authentication and similar.
+
+   verify
+
+      SSL Verification default. Defaults to *True*, requiring requests
+      to verify the TLS certificate at the remote end. If verify is
+      set to *False*, requests will accept any TLS certificate
+      presented by the server, and will ignore hostname mismatches
+      and/or expired certificates, which will make your application
+      vulnerable to man-in-the-middle (MitM) attacks. Only set this to
+      *False* for testing.
+
+class pat.Connectors.Soap(*args, **kwargs)
+
+      Basi: "fsspec.spec.AbstractFileSystem"
+
+   protocol = 'soap'
+
+class pat.Connectors.SoapMsg(data)
+
+      Basi: "object"
+
+   close()
+
+   read()
+
+exception pat.Connectors.TransferDone
+
+      Basi: "Exception"
+
+   Internal exception to break out of transfer
+
+class pat.Connectors.Transport(cache=None, timeout=300, operation_timeout=None, session=None)
+
+      Basi: "object"
+
+   The transport object handles all communication to the SOAP server.
+
+   Parametri:
+      * **cache** – The cache object to be used to cache GET requests
+
+      * **timeout** – The timeout for loading wsdl and xsd documents.
+
+      * **operation_timeout** – The timeout for operations (POST/GET).
+        By default this is None (no timeout).
+
+      * **session** – A "request.Session()" object (optional)
+
+   get(address, params, headers)
+
+      Proxy to requests.get()
+
+      Parametri:
+         * **address** – The URL for the request
+
+         * **params** – The query parameters
+
+         * **headers** – a dictionary with the HTTP headers.
+
+   load(url)
+
+      Load the content from the given URL
+
+   post(address, message, headers)
+
+      Proxy to requests.posts()
+
+      Parametri:
+         * **address** – The URL for the request
+
+         * **message** – The content for the body
+
+         * **headers** – a dictionary with the HTTP headers.
+
+   post_xml(address, envelope, headers)
+
+      Post the envelope xml element to the given address with the
+      headers.
+
+      This method is intended to be overriden if you want to customize
+      the serialization of the xml element. By default the body is
+      formatted and encoded as utf-8. See
+      "zeep.wsdl.utils.etree_to_string".
+
+   settings(timeout=None)
+
+      Context manager to temporarily overrule options.
+
+      Example:
+
+         transport = zeep.Transport()
+         with transport.settings(timeout=10):
+             client.service.fast_call()
+
+      Parametri:
+         **timeout** – Set the timeout for POST/GET operations (not
+         used for loading external WSDL or XSD documents)
+
+pat.Connectors.parse_qs(qs, keep_blank_values=False, strict_parsing=False, encoding='utf-8', errors='replace', max_num_fields=None)
+
+   Parse a query given as a string argument.
+
+   Arguments:
+
+   qs: percent-encoded query string to be parsed
+
+   keep_blank_values: flag indicating whether blank values in
+      percent-encoded queries should be treated as blank strings. A
+      true value indicates that blanks should be retained as blank
+      strings.  The default false value indicates that blank values
+      are to be ignored and treated as if they were not included.
+
+   strict_parsing: flag indicating what to do with parsing errors.
+      If false (the default), errors are silently ignored. If true,
+      errors raise a ValueError exception.
+
+   encoding and errors: specify how to decode percent-encoded
+   sequences
+      into Unicode characters, as accepted by the bytes.decode()
+      method.
+
+   max_num_fields: int. If set, then throws a ValueError if there
+      are more than n fields read by parse_qsl().
+
+   Returns a dictionary.

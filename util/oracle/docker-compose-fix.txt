@@ -1,0 +1,28 @@
+La versione di Oracle presenta alcuni problemi che vanno risolti a mano
+
+dopo aver eseguito il comando docker-compose up collegarsi in sh ed eseguire i seguenti comandi :
+
+- settare la password di sysetm :
+setPassword.sh xxxxxxxxx
+
+- cambiare versione java
+cd $ORACLE_HOME/javavm/admin
+rm classes.bin   - Potrebbe non esserci il file
+ln -s ../jdk/jdk7/admin/classes.bin .
+
+- (Richiede tempo)
+sqlplus / as sysdba
+@?/javavm/install/update_javavm_db.sql
+
+- aumentare il numero di process e session (problema  ORA-12516, TNS:listener could not find available handler)
+sqlplus / as sysdba
+alter system set processes=300 scope=spfile;
+alter system set sessions=300 scope=spfile;
+shutdown immediate;
+startup;
+
+
+per approfondimenti :
+ - https://www.dbarj.com.br/en/2017/05/oracle-12-1-0-2-cdb-creation-catcdb-sql-returning-ora-22288-or-ora-29548/
+ - https://mdesouza.wordpress.com/2021/06/23/error-ora-29548-ora-29548-java-system-class-reported-joxcsys-release-mismatch-12-2-0-1-190716-1-8-in-database-classes-bin-vs-12-2-0-1-0-1-8-in-executable/
+

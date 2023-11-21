@@ -1,0 +1,662 @@
+
+<!DOCTYPE html>
+
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pat.connector &#8212; PAT 0.1.0 documentazione</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/translations.js"></script>
+    
+    <link rel="index" title="Indice" href="../../genindex.html" />
+    <link rel="search" title="Cerca" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigazione</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="Indice generale"
+             accesskey="I">indice</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Indice del modulo Python"
+             >moduli</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PAT 0.1.0 documentazione</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Codice del modulo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pat.connector</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Codice sorgente per pat.connector</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">fsspec</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+
+<span class="kn">from</span> <span class="nn">pat.class_tool</span> <span class="kn">import</span> <span class="n">ConnectorRead</span>
+<span class="kn">from</span> <span class="nn">pat.db_utility</span> <span class="kn">import</span> <span class="n">DbJaydebeapi</span> <span class="k">as</span> <span class="n">Db</span>
+<span class="kn">from</span> <span class="nn">pat.utility</span> <span class="kn">import</span> <span class="n">Common</span><span class="p">,</span> <span class="n">SqlBuilder</span><span class="p">,</span> <span class="n">PostgresSqlBuilder</span><span class="p">,</span> <span class="n">ImpalaSqlBuilder</span><span class="p">,</span> <span class="n">Json</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+    <span class="kn">import</span> <span class="nn">cx_Oracle</span>
+    <span class="kn">import</span> <span class="nn">sqlalchemy</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO pandas&quot;</span><span class="p">)</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Classe per connettersi a diversi FileSystem</span>
+<span class="sd">- HTTP/HTTPS (get/post) (DigestAuth/BasicAuth)</span>
+<span class="sd">- SOAP</span>
+<span class="sd">- Kafka</span>
+<span class="sd">- FTP (File/Folder)</span>
+<span class="sd">- SSH/SFTP (File/Folder)</span>
+<span class="sd">- HDFS (File/Folder)</span>
+<span class="sd">- WEBHDFS (File/Folder)</span>
+<span class="sd">Protocolli DB si usa spark o jadebeapi:</span>
+<span class="sd">    - DB Spark-Jdbc</span>
+<span class="sd">    - DB Jdbc(JayDeBeeApi)</span>
+<span class="sd">    - DB-HiveSpark</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">esempio conf.json</span>
+<span class="sd">****</span>
+<span class="sd">webhdfs:</span>
+<span class="sd">****</span>
+<span class="sd">{</span>
+<span class="sd">    &quot;id_source&quot;: &quot;1&quot;,</span>
+<span class="sd">    &quot;url&quot;: &quot;webhdfs__://10.206.227.251:9870/ingestion/json_example/pic_treni_out/2022/02/10/PICTreni2022020710411747470306b44-bf55-4611-bd74-e2954d958df7&quot;,</span>
+<span class="sd">    &quot;param&quot;: {</span>
+<span class="sd">        &quot;type&quot; : &quot;FILE&quot;</span>
+<span class="sd">    }</span>
+<span class="sd">}</span>
+<span class="sd">*****</span>
+<span class="sd">jdbc:oracle:</span>
+<span class="sd">*****</span>
+<span class="sd">{</span>
+<span class="sd">&quot;id_source&quot;: &quot;2&quot;,</span>
+<span class="sd">&quot;url&quot;: &quot;jdbc:oracle://localhost:51521/geoanasprd&quot;,</span>
+<span class="sd">&quot;param&quot;: {</span>
+<span class="sd">    &quot;table&quot; : &quot;ASTRADET&quot;,</span>
+<span class="sd">    &quot;schema&quot; : &quot;CATASTO_PUBBLICO&quot;,</span>
+<span class="sd">    &quot;user&quot;: &quot;CATASTO_PUBBLICO&quot;,</span>
+<span class="sd">    &quot;password&quot;: &quot;Pubbl1co&quot;,</span>
+<span class="sd">    &quot;service&quot;: &quot;geoanasprd&quot;,</span>
+<span class="sd">    &quot;driver&quot;: &quot;oracle.jdbc.driver.OracleDriver&quot;,</span>
+<span class="sd">    &quot;jar_filepath&quot;: &quot;ojdbc8.jar&quot;</span>
+<span class="sd">    }</span>
+<span class="sd">}</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+
+<div class="viewcode-block" id="ConnectorBase"><a class="viewcode-back" href="../../pat.html#pat.connector.ConnectorBase">[documenti]</a><span class="k">class</span> <span class="nc">ConnectorBase</span><span class="p">:</span>
+<div class="viewcode-block" id="ConnectorBase.read"><a class="viewcode-back" href="../../pat.html#pat.connector.ConnectorBase.read">[documenti]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="ConnectorBase.write"><a class="viewcode-back" href="../../pat.html#pat.connector.ConnectorBase.write">[documenti]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="ConnectorBase.get_connection_param"><a class="viewcode-back" href="../../pat.html#pat.connector.ConnectorBase.get_connection_param">[documenti]</a>    <span class="k">def</span> <span class="nf">get_connection_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">url_param</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;//&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="n">host</span> <span class="o">=</span> <span class="n">url_param</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="n">url_param</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">database</span> <span class="o">=</span> <span class="n">url_param</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">table</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">sql_builder</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="s2">&quot;jdbc:impala&quot;</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;jdbc:impala://</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">;auth=noSasl&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;jar_filepath&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;jar_filepath&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">sql_builder</span> <span class="o">=</span> <span class="n">ImpalaSqlBuilder</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="s2">&quot;jdbc:postgresql&quot;</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;jdbc:postgresql://</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;host&#39;</span><span class="p">:</span> <span class="n">host</span><span class="p">,</span>
+                <span class="s1">&#39;port&#39;</span><span class="p">:</span> <span class="n">port</span><span class="p">,</span>
+                <span class="s1">&#39;user&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;database&#39;</span><span class="p">:</span> <span class="n">database</span><span class="p">,</span>
+                <span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">sql_builder</span> <span class="o">=</span> <span class="n">PostgresSqlBuilder</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="s2">&quot;jdbc:oracle&quot;</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;jdbc:oracle:thin:@</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;host&#39;</span><span class="p">:</span> <span class="n">host</span><span class="p">,</span>
+                <span class="s1">&#39;port&#39;</span><span class="p">:</span> <span class="n">port</span><span class="p">,</span>
+                <span class="s1">&#39;user&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;service&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;service&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">sql_builder</span> <span class="o">=</span> <span class="n">SqlBuilder</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">schema</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">table</span>
+
+        <span class="n">db_client</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;spark&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">db_client</span> <span class="o">=</span> <span class="n">Db</span><span class="p">(</span>
+                <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="n">url</span><span class="p">,</span>
+                <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;jar_filepath&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="n">sql_builder</span><span class="o">=</span><span class="n">sql_builder</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">url</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">db_client</span></div>
+
+<div class="viewcode-block" id="ConnectorBase.get_connection_param_old"><a class="viewcode-back" href="../../pat.html#pat.connector.ConnectorBase.get_connection_param_old">[documenti]</a>    <span class="k">def</span> <span class="nf">get_connection_param_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">protocol</span><span class="p">):</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">url_param</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;//&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="n">host</span> <span class="o">=</span> <span class="n">url_param</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="n">url_param</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">database</span> <span class="o">=</span> <span class="n">url_param</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">table</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">sql_builder</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="s2">&quot;jdbc:impala&quot;</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;jdbc:impala://</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">;auth=noSasl&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;jar_filepath&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;jar_filepath&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">sql_builder</span> <span class="o">=</span> <span class="n">ImpalaSqlBuilder</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="s2">&quot;jdbc:postgresql&quot;</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;jdbc:postgresql://</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;host&#39;</span><span class="p">:</span> <span class="n">host</span><span class="p">,</span>
+                <span class="s1">&#39;port&#39;</span><span class="p">:</span> <span class="n">port</span><span class="p">,</span>
+                <span class="s1">&#39;user&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;database&#39;</span><span class="p">:</span> <span class="n">database</span><span class="p">,</span>
+                <span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">sql_builder</span> <span class="o">=</span> <span class="n">PostgresSqlBuilder</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="s2">&quot;jdbc:oracle&quot;</span> <span class="ow">in</span> <span class="n">protocol</span><span class="p">:</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;jdbc:oracle:thin:@</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+            <span class="n">properties</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;host&#39;</span><span class="p">:</span> <span class="n">host</span><span class="p">,</span>
+                <span class="s1">&#39;port&#39;</span><span class="p">:</span> <span class="n">port</span><span class="p">,</span>
+                <span class="s1">&#39;user&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;service&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;service&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">sql_builder</span> <span class="o">=</span> <span class="n">SqlBuilder</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">schema</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">table</span>
+
+        <span class="k">return</span> <span class="n">url</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">sql_builder</span></div></div>
+
+
+<div class="viewcode-block" id="JdbcConnector"><a class="viewcode-back" href="../../pat.html#pat.connector.JdbcConnector">[documenti]</a><span class="k">class</span> <span class="nc">JdbcConnector</span><span class="p">(</span><span class="n">ConnectorBase</span><span class="p">):</span>
+<div class="viewcode-block" id="JdbcConnector.read"><a class="viewcode-back" href="../../pat.html#pat.connector.JdbcConnector.read">[documenti]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;JdbcConnector - read - START&quot;</span><span class="p">)</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">db_url</span><span class="p">,</span> <span class="n">db_properties</span><span class="p">,</span> <span class="n">db_table</span><span class="p">,</span> <span class="n">db_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_connection_param</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;db_table&quot;</span> <span class="ow">in</span> <span class="n">param</span> <span class="ow">and</span> <span class="s2">&quot;query&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+            <span class="n">sql</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;select * from </span><span class="si">{</span><span class="n">db_table</span><span class="si">}</span><span class="s2">&quot;</span>  <span class="c1"># cosi posso usare anche una query piu complessa (da testare)o cambiarla a seconda del db</span>
+        <span class="k">elif</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="n">sql</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">db_client</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="n">isSelect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># lista di tuple</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;JdbcConnector - read - END&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="JdbcConnector.write"><a class="viewcode-back" href="../../pat.html#pat.connector.JdbcConnector.write">[documenti]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;JdbcConnector - write - START&quot;</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">pyspark.sql</span> <span class="kn">import</span> <span class="n">DataFrame</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">db_url</span><span class="p">,</span> <span class="n">db_properties</span><span class="p">,</span> <span class="n">db_table</span><span class="p">,</span> <span class="n">db_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_connection_param</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;insert&quot;</span>
+
+        <span class="n">sql</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sql</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JdbcConnector - write - query == </span><span class="si">{</span><span class="n">sql</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">queries</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+            <span class="n">db_client</span><span class="o">.</span><span class="n">execute_multiple_query</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="c1"># columns = next(iter(data))</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">queries</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;insert&quot;</span><span class="p">:</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">columns</span><span class="p">,</span>
+                    <span class="n">values</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;update&quot;</span><span class="p">:</span>
+                <span class="n">where_condition</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;where&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">columns</span><span class="p">,</span>
+                    <span class="n">values</span><span class="p">,</span>
+                    <span class="n">where_condition</span>
+                <span class="p">)</span>
+
+            <span class="c1"># riaggiungo le colonne perchè la pop lo elimina da data e i flussi successivi non la ritrovano</span>
+            <span class="c1">#data.insert(0, columns)</span>
+
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            if mode == &quot;insert&quot;:</span>
+<span class="sd">                queries = db_sql_builder.to_insert(db_table, columns, values)</span>
+<span class="sd">            elif mode == &quot;update&quot;:</span>
+<span class="sd">                where_condition = &quot;&quot;</span>
+<span class="sd">                ignore_null = None</span>
+<span class="sd">                queries = db_sql_builder.to_update(db_table, columns, values, where_condition, ignore_null)</span>
+<span class="sd">            for q in queries:</span>
+<span class="sd">                db_client.execute_query(q, commit=True)</span>
+<span class="sd">            data.insert(0,</span>
+<span class="sd">                        columns)  # riaggiungo le colonne perchè la pop lo elimina da data e i flussi successivi non la ritrovano</span>
+<span class="sd">            &#39;&#39;&#39;</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;columns&quot;</span><span class="p">]</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">]</span>
+            <span class="c1"># si potrebbero mettere pure nel dict di data</span>
+            <span class="n">where_condition</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;where_condition&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="p">[])</span>
+            <span class="n">ignore_null</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;ignore_null&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">queries</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;insert&quot;</span><span class="p">:</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">columns</span><span class="p">,</span>
+                    <span class="n">values</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;update&quot;</span><span class="p">:</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">columns</span><span class="p">,</span>
+                    <span class="n">values</span><span class="p">,</span>
+                    <span class="n">where_condition</span>
+                <span class="p">)</span>
+            <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">):</span>
+            <span class="c1"># TODO</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">where_condition</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">data</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">collect</span><span class="p">():</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>  <span class="c1"># convert to tuple and append to list</span>
+            <span class="n">header</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">header</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;insert&quot;</span><span class="p">:</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">columns</span><span class="p">,</span>
+                    <span class="n">values</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;update&quot;</span><span class="p">:</span>
+                <span class="n">db_client</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+                    <span class="n">columns</span><span class="p">,</span>
+                    <span class="n">values</span><span class="p">,</span>
+                    <span class="n">where_condition</span>
+                <span class="p">)</span>
+            <span class="c1"># TODO</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;JdbcConnector - write - END&quot;</span><span class="p">)</span></div></div>
+
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">class PandasJdbcConnector(ConnectorBase):</span>
+<span class="sd">    def read(self, url, param, spark=None):</span>
+<span class="sd">        try :</span>
+<span class="sd">            cx_Oracle.init_oracle_client(lib_dir=r&quot;C:\instantclient_12_2&quot;)</span>
+<span class="sd">        except :</span>
+<span class="sd">            pass</span>
+<span class="sd">        protocol = Common.get_protocol(url)</span>
+<span class="sd">        db_url, db_properties, db_table, db_client = self.get_connection_param(url, param, protocol)</span>
+
+<span class="sd">        DIALECT = &#39;oracle&#39;</span>
+<span class="sd">        SQL_DRIVER = &#39;cx_oracle&#39;</span>
+<span class="sd">        USERNAME = Json.get_value(param, &quot;schema&quot;, defval=None)</span>
+<span class="sd">        PASSWORD = Json.get_value(param, &quot;password&quot;, defval=None)</span>
+<span class="sd">        HOST = &#39;127.0.0.1&#39;</span>
+<span class="sd">        PORT = 1521</span>
+<span class="sd">        SERVICE = &#39;xe&#39;</span>
+<span class="sd">        ENGINE_PATH_WIN_AUTH = DIALECT + &#39;+&#39; + SQL_DRIVER + &#39;://&#39; + USERNAME + &#39;:&#39; + PASSWORD + &#39;@&#39; + HOST + &#39;:&#39; + str(PORT) + &#39;/?service_name=&#39; + SERVICE</span>
+<span class="sd">        TABLENAME = Json.get_value(param, &quot;table&quot;, defval=None)</span>
+
+<span class="sd">        conn = sqlalchemy.create_engine(ENGINE_PATH_WIN_AUTH)</span>
+<span class="sd">        SQL = &quot;SELECT * FROM {}&quot;.format(TABLENAME)</span>
+<span class="sd">        data = pd.read_sql_query(SQL, con=conn)</span>
+<span class="sd">        #data = pd.read_sql_table(TABLENAME, con=conn)</span>
+
+<span class="sd">        #data = conn.execute(SQL)</span>
+
+<span class="sd">        cr = ConnectorRead().data(data).filename(db_table)</span>
+<span class="sd">        return cr</span>
+
+<span class="sd">    def write(self, url, param, data, spark=None):</span>
+<span class="sd">        try :</span>
+<span class="sd">            cx_Oracle.init_oracle_client(lib_dir=r&quot;C:\instantclient_12_2&quot;)</span>
+<span class="sd">        except :</span>
+<span class="sd">            pass</span>
+<span class="sd">        protocol = Common.get_protocol(url)</span>
+<span class="sd">        db_url, db_properties, db_table, db_client = self.get_connection_param(url, param, protocol)</span>
+
+<span class="sd">        DIALECT = &#39;oracle&#39;</span>
+<span class="sd">        SQL_DRIVER = &#39;cx_oracle&#39;</span>
+<span class="sd">        USERNAME = Json.get_value(param, &quot;schema&quot;, defval=None)</span>
+<span class="sd">        PASSWORD = Json.get_value(param, &quot;password&quot;, defval=None)</span>
+<span class="sd">        HOST = &#39;127.0.0.1&#39;</span>
+<span class="sd">        PORT = 1521</span>
+<span class="sd">        SERVICE = &#39;xe&#39;</span>
+<span class="sd">        ENGINE_PATH_WIN_AUTH = DIALECT + &#39;+&#39; + SQL_DRIVER + &#39;://&#39; + USERNAME + &#39;:&#39; + PASSWORD + &#39;@&#39; + HOST + &#39;:&#39; + str(PORT) + &#39;/?service_name=&#39; + SERVICE</span>
+<span class="sd">        TABLENAME = Json.get_value(param, &quot;table&quot;, defval=None)</span>
+<span class="sd">        conn = sqlalchemy.create_engine(ENGINE_PATH_WIN_AUTH)</span>
+<span class="sd">        data.to_sql(TABLENAME, conn, if_exists=&#39;append&#39;, index=False)</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+
+<div class="viewcode-block" id="SparkJdbcConnector"><a class="viewcode-back" href="../../pat.html#pat.connector.SparkJdbcConnector">[documenti]</a><span class="k">class</span> <span class="nc">SparkJdbcConnector</span><span class="p">(</span><span class="n">ConnectorBase</span><span class="p">):</span>
+<div class="viewcode-block" id="SparkJdbcConnector.read"><a class="viewcode-back" href="../../pat.html#pat.connector.SparkJdbcConnector.read">[documenti]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="c1"># db_url, db_properties, db_table, db_client = self.get_f.wconnection_param(url, param, protocol)</span>
+        <span class="c1"># data = spark.read.jdbc(db_url, db_table, properties=db_properties)</span>
+        <span class="n">db_url</span><span class="p">,</span> <span class="n">db_properties</span><span class="p">,</span> <span class="n">db_table</span><span class="p">,</span> <span class="n">db_sql_builder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_connection_param</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+
+
+        <span class="k">if</span> <span class="s2">&quot;query_file&quot;</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;query_file&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">q</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">jdbc</span><span class="p">(</span><span class="n">db_url</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="n">db_properties</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;query&quot;</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">jdbc</span><span class="p">(</span><span class="n">db_url</span><span class="p">,</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span> <span class="n">properties</span><span class="o">=</span><span class="n">db_properties</span><span class="p">)</span>
+        <span class="k">else</span> <span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">jdbc</span><span class="p">(</span><span class="n">db_url</span><span class="p">,</span> <span class="n">db_table</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="n">db_properties</span><span class="p">)</span>
+
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        if &quot;table&quot; in param and &quot;query&quot; not in param:</span>
+<span class="sd">            data = spark.read.jdbc(db_url, db_table, properties=db_properties)</span>
+<span class="sd">        elif &quot;query&quot; in param:  # usare query con alias esempio: query = &quot;(select * from employees where emp_no &lt; 10008) emp_alias: in oracle senza alias&quot;</span>
+<span class="sd">            data = spark.read.jdbc(db_url, Json.get_value(param, &quot;query&quot;, defval=None), properties=db_properties)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">cr</span> <span class="o">=</span> <span class="n">ConnectorRead</span><span class="p">()</span><span class="o">.</span><span class="n">data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">filename</span><span class="p">(</span><span class="n">db_table</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cr</span></div>
+
+<div class="viewcode-block" id="SparkJdbcConnector.write"><a class="viewcode-back" href="../../pat.html#pat.connector.SparkJdbcConnector.write">[documenti]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">db_url</span><span class="p">,</span> <span class="n">db_properties</span><span class="p">,</span> <span class="n">db_table</span><span class="p">,</span> <span class="n">db_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_connection_param</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">protocol</span><span class="p">)</span>
+
+        <span class="c1">#gestione truncate</span>
+        <span class="n">df_write</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">write</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;overwrite&quot;</span><span class="p">:</span>
+            <span class="n">df_write</span> <span class="o">=</span> <span class="n">df_write</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;truncate&quot;</span><span class="p">,</span> <span class="s2">&quot;true&quot;</span><span class="p">)</span>
+
+        <span class="n">df_write</span><span class="o">.</span><span class="n">jdbc</span><span class="p">(</span><span class="n">db_url</span><span class="p">,</span> <span class="n">db_table</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="n">db_properties</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="SparkHiveConnector"><a class="viewcode-back" href="../../pat.html#pat.connector.SparkHiveConnector">[documenti]</a><span class="k">class</span> <span class="nc">SparkHiveConnector</span><span class="p">(</span><span class="n">ConnectorBase</span><span class="p">):</span>
+<div class="viewcode-block" id="SparkHiveConnector.read"><a class="viewcode-back" href="../../pat.html#pat.connector.SparkHiveConnector.read">[documenti]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SparkHiveConnector - read - START&quot;</span><span class="p">)</span>
+        <span class="n">database</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;//&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;query&quot;</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span>
+                <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="s2">&quot;db_table&quot;</span> <span class="ow">in</span> <span class="n">param</span> <span class="ow">and</span> <span class="s2">&quot;query&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">param</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">table</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">database</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s1">&#39;db_table&#39;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SparkHiveConnector - read - END&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+<div class="viewcode-block" id="SparkHiveConnector.write"><a class="viewcode-back" href="../../pat.html#pat.connector.SparkHiveConnector.write">[documenti]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SparkHiveConnector - write - START&quot;</span><span class="p">)</span>
+        <span class="n">database</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/,/&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">location</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;location&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">database</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">file_format</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;file_format&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">write</span> \
+            <span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">file_format</span><span class="p">)</span> \
+            <span class="o">.</span><span class="n">mode</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span> \
+            <span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">,</span> <span class="n">location</span><span class="p">)</span>
+
+        <span class="n">partition_fields</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;partition_fields&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">partition_fields</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># self.logger.info(&quot;writeDataToHiveImpl [{}] - set partition_fields&quot;.format(k))</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">partitionBy</span><span class="p">(</span><span class="o">*</span><span class="n">partition_fields</span><span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">saveAsTable</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SparkHiveConnector - write - END&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="FileConnector"><a class="viewcode-back" href="../../pat.html#pat.connector.FileConnector">[documenti]</a><span class="k">class</span> <span class="nc">FileConnector</span><span class="p">(</span><span class="n">ConnectorBase</span><span class="p">):</span>
+<div class="viewcode-block" id="FileConnector.get_list_file_name"><a class="viewcode-back" href="../../pat.html#pat.connector.FileConnector.get_list_file_name">[documenti]</a>    <span class="k">def</span> <span class="nf">get_list_file_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fn</span><span class="p">:</span>
+            <span class="n">fs_</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">fs</span>
+        <span class="n">list_file_name</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2">://</span><span class="si">{</span><span class="n">fs_</span><span class="o">.</span><span class="n">storage_options</span><span class="p">[</span><span class="s1">&#39;host&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">fs_</span><span class="o">.</span><span class="n">storage_options</span><span class="p">[</span><span class="s1">&#39;port&#39;</span><span class="p">]</span><span class="si">}{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fs_</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">path</span><span class="p">)))</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        list_directory = fs_.listdir(fn.path)</span>
+<span class="sd">        list_file_name = []</span>
+<span class="sd">        for d in list_directory:</span>
+<span class="sd">            if d[&quot;type&quot;] == &#39;file&#39;:</span>
+<span class="sd">                file_name = f&quot;{protocol}://{fs_.storage_options[&#39;host&#39;]}:{fs_.storage_options[&#39;port&#39;]}{d[&#39;name&#39;]}&quot;</span>
+<span class="sd">                logging.debug(f&quot;add {file_name}&quot;)</span>
+<span class="sd">                list_file_name.append(file_name)</span>
+<span class="sd">            else:</span>
+<span class="sd">                file_name_tmp = f&quot;{protocol}://{fs_.storage_options[&#39;host&#39;]}:{fs_.storage_options[&#39;port&#39;]}{d[&#39;name&#39;]}/&quot;</span>
+<span class="sd">                logging.debug(f&quot;read {file_name_tmp}&quot;)</span>
+<span class="sd">                list_file_name_tmp = self.get_list_file_name(protocol, file_name_tmp, param)</span>
+<span class="sd">                list_file_name.extend(list_file_name_tmp)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">list_file_name</span></div>
+
+<div class="viewcode-block" id="FileConnector.get_list_file_name_"><a class="viewcode-back" href="../../pat.html#pat.connector.FileConnector.get_list_file_name_">[documenti]</a>    <span class="k">def</span> <span class="nf">get_list_file_name_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fn</span><span class="p">:</span>
+            <span class="n">fs_</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">fs</span>
+
+        <span class="c1">#list_files = fsspec.open_files(url, **param)  ##!! lista oggetti folder</span>
+        <span class="n">list_files</span> <span class="o">=</span> <span class="n">fs_</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">list_directory</span> <span class="o">=</span> <span class="n">fs_</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">list_file_name</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">list_files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">):</span>
+                <span class="n">file_name_tmp</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2">://</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">storage_options</span><span class="p">[</span><span class="s1">&#39;host&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">storage_options</span><span class="p">[</span><span class="s1">&#39;port&#39;</span><span class="p">]</span><span class="si">}{</span><span class="n">f</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">*&quot;</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;read </span><span class="si">{</span><span class="n">file_name_tmp</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">list_file_name_tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_list_file_name</span><span class="p">(</span><span class="n">protocol</span><span class="p">,</span> <span class="n">file_name_tmp</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+                <span class="n">list_file_name</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">list_file_name_tmp</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2">://</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">storage_options</span><span class="p">[</span><span class="s1">&#39;host&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">storage_options</span><span class="p">[</span><span class="s1">&#39;port&#39;</span><span class="p">]</span><span class="si">}{</span><span class="n">f</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;add </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">list_file_name</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">list_file_name</span></div>
+
+<div class="viewcode-block" id="FileConnector.read"><a class="viewcode-back" href="../../pat.html#pat.connector.FileConnector.read">[documenti]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">readList</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">type_</span> <span class="o">=</span> <span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">type_</span> <span class="o">==</span> <span class="s2">&quot;FOLDER&quot;</span><span class="p">:</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            list_files = fsspec.open_files(url, **param)  ##!! lista oggetti folder</span>
+
+<span class="sd">            list_file_name = []</span>
+<span class="sd">            for f in list_files :</span>
+<span class="sd">                if f.path.endswith(&quot;/&quot;) :</span>
+<span class="sd">                    logging.warn(f&quot;NOT add {f.path}&quot;)</span>
+<span class="sd">                else :</span>
+<span class="sd">                    file_name = f&quot;{protocol}://{f.fs.storage_options[&#39;host&#39;]}:{f.fs.storage_options[&#39;port&#39;]}{f.path}&quot;</span>
+<span class="sd">                    logging.debug(f&quot;add {file_name}&quot;)</span>
+<span class="sd">                    list_file_name.append(file_name)</span>
+<span class="sd">            &#39;&#39;&#39;</span>
+
+            <span class="n">list_file_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_list_file_name</span><span class="p">(</span><span class="n">protocol</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            list_file_name = list(</span>
+<span class="sd">                map(lambda x: f&quot;{protocol}://{x.fs.storage_options[&#39;host&#39;]}:{x.fs.storage_options[&#39;port&#39;]}{x.path}&quot; if not x.path.endswith(&quot;/&quot;) else None, list_files))  ###!!lista filename input</span>
+<span class="sd">            &#39;&#39;&#39;</span>
+            <span class="c1"># list_file_name = list(map(lambda x: x.path, list_files))  ###!!lista filename input</span>
+            <span class="n">data_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">filename_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">list_file_name</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># o parametro</span>
+
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">list_file_name</span><span class="p">:</span>
+                    <span class="k">with</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span> <span class="k">as</span> <span class="n">fs</span><span class="p">:</span>
+                        <span class="n">data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+                        <span class="c1">#filename_list.append(os.path.basename(f))</span>
+                        <span class="n">filename_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+            <span class="n">readList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConnectorRead</span><span class="p">()</span><span class="o">.</span><span class="n">data</span><span class="p">(</span><span class="n">data_list</span><span class="p">)</span><span class="o">.</span><span class="n">filename</span><span class="p">(</span><span class="n">filename_list</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">filename_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">with</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">)</span> <span class="k">as</span> <span class="n">fs</span><span class="p">:</span>
+                <span class="n">data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+                <span class="n">filename_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
+                <span class="n">readList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConnectorRead</span><span class="p">()</span><span class="o">.</span><span class="n">data</span><span class="p">(</span><span class="n">data_list</span><span class="p">)</span><span class="o">.</span><span class="n">filename</span><span class="p">(</span><span class="n">filename_list</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">readList</span></div>
+
+<div class="viewcode-block" id="FileConnector.write"><a class="viewcode-back" href="../../pat.html#pat.connector.FileConnector.write">[documenti]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fn</span><span class="p">:</span>
+            <span class="n">fn</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FileConnector.delete"><a class="viewcode-back" href="../../pat.html#pat.connector.FileConnector.delete">[documenti]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FileConnector - delete - url == </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">param</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fn</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FileConnector - delete - fn.path == </span><span class="si">{</span><span class="n">fn</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1">#fn.fs.rm_file(fn.path)</span>
+            <span class="n">fs_</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">fs</span>
+
+        <span class="n">fs_</span><span class="o">.</span><span class="n">rm_file</span><span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">path</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Connector"><a class="viewcode-back" href="../../pat.html#pat.connector.Connector">[documenti]</a><span class="k">class</span> <span class="nc">Connector</span><span class="p">:</span>
+    <span class="n">connector_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;spark:hive:&quot;</span><span class="p">:</span> <span class="n">SparkHiveConnector</span><span class="p">,</span>
+        <span class="c1"># &quot;spark:jdbc:oracle&quot;: PandasJdbcConnector,</span>
+        <span class="s2">&quot;spark:jdbc:oracle&quot;</span><span class="p">:</span> <span class="n">SparkJdbcConnector</span><span class="p">,</span>
+        <span class="s2">&quot;spark:jdbc:postgresql&quot;</span><span class="p">:</span> <span class="n">SparkJdbcConnector</span><span class="p">,</span>
+        <span class="s2">&quot;spark:jdbc:impala&quot;</span><span class="p">:</span> <span class="n">SparkJdbcConnector</span><span class="p">,</span>
+        <span class="s2">&quot;jdbc:oracle&quot;</span><span class="p">:</span> <span class="n">JdbcConnector</span><span class="p">,</span>
+        <span class="s2">&quot;jdbc:postgresql&quot;</span><span class="p">:</span> <span class="n">JdbcConnector</span><span class="p">,</span>
+        <span class="s2">&quot;jdbc:impala&quot;</span><span class="p">:</span> <span class="n">JdbcConnector</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="Connector.read"><a class="viewcode-back" href="../../pat.html#pat.connector.Connector.read">[documenti]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="o">==</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="n">param</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="n">Connector</span><span class="o">.</span><span class="n">connector_map</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">connector</span> <span class="o">=</span> <span class="n">Connector</span><span class="o">.</span><span class="n">connector_map</span><span class="p">[</span><span class="n">protocol</span><span class="p">]()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">connector</span> <span class="o">=</span> <span class="n">FileConnector</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">connector</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="n">spark</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Connector.write"><a class="viewcode-back" href="../../pat.html#pat.connector.Connector.write">[documenti]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="o">==</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="n">param</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="n">Connector</span><span class="o">.</span><span class="n">connector_map</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">connector</span> <span class="o">=</span> <span class="n">Connector</span><span class="o">.</span><span class="n">connector_map</span><span class="p">[</span><span class="n">protocol</span><span class="p">]()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">connector</span> <span class="o">=</span> <span class="n">FileConnector</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">connector</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="n">spark</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Connector.delete"><a class="viewcode-back" href="../../pat.html#pat.connector.Connector.delete">[documenti]</a>    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="o">==</span> <span class="kc">None</span> <span class="p">:</span>
+            <span class="n">param</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">protocol</span> <span class="o">=</span> <span class="n">Common</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="n">Connector</span><span class="o">.</span><span class="n">connector_map</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Connector - UNIMPLEMENTED METHOD&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">connector</span> <span class="o">=</span> <span class="n">FileConnector</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">connector</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">spark</span><span class="o">=</span><span class="n">spark</span><span class="p">)</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Ricerca veloce</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Vai" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigazione</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="Indice generale"
+             >indice</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Indice del modulo Python"
+             >moduli</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PAT 0.1.0 documentazione</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Codice del modulo</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">pat.connector</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022, Giuseppe Ventura.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.5.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,120 @@
+{
+	"app": {
+		"name": "ztl_generali",
+		"code" : -1,
+		"exit_code" : 0,
+		"validity_minutes": 5,
+		"db_logger": true,
+		"init_spark": true
+	},
+	"env" : {
+		"spark_connector_url" : "spark:jdbc:oracle://127.0.0.1:1521/ORCLCDB",
+		"connector_url" : "jdbc:oracle://127.0.0.1:1521/ORCLCDB",
+		"db_table_operation" : "CATASTO_GALLERIE_OPERATION_NEW",
+		"db_table_source" : "CATASTO_GALLERIE_SOURCE",
+		"db_table_now" : "V_CATASTO_GALLERIE_NOW",
+		"db_table_storico" : "CATASTO_GALLERIE_STORICO",
+		"primary_key" : ["TIPOPERA", "IDOPERA", "CODICE"],
+		"query_1_where_s" : "s.TIPOPERA, s.IDOPERA, s.CODICE",
+		"query_1_where_o" : "o.TIPOPERA, o.IDOPERA, o.CODICE",
+		"query_2_where_so" : "s.TIPOPERA = o.TIPOPERA AND s.IDOPERA = o.IDOPERA AND s.CODICE = o.CODICE",
+		"db_url" : "jdbc:oracle:thin:@//127.0.0.1:1521/ORCLCDB",
+		"db_usr" : "ingestion",
+		"db_pwd" : "ingestion",
+		"db_service" : "ingestion",
+		"db_driver" : "oracle.jdbc.driver.OracleDriver",
+		"db_source" : "xe",
+		"db_jar" : "ojdbc8.jar",
+		"db_query_src" : "(SELECT INGESTION.${env.db_table_source}.*, SDO_UTIL.TO_WKBGEOMETRY(INGESTION.${env.db_table_source}.GEOM_32632) GEOM2 FROM INGESTION.${env.db_table_source})",
+		"db_query_now" : "(SELECT INGESTION.${env.db_table_now}.*, SDO_UTIL.TO_WKBGEOMETRY(INGESTION.${env.db_table_now}.GEOM_32632) GEOM2 FROM INGESTION.${env.db_table_now})",
+		"db_schema" : "ingestion",
+		"now" : "%d-%m-%Y %H:%M:%S",
+		"query_1" : "CALL INGESTION.PROC_CATASTO_GALLERIE_STORICO()"
+	},
+	"db_log": {
+		"url": "${env.db_url}",
+		"schema": "${env.db_schema}",
+		"driver": "${env.db_driver}",
+		"user": "${env.db_usr}",
+		"password": "${env.db_pwd}",
+		"service": "${env.db_service}"
+	},
+	"db_log_postgres": {
+		"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/ojdbc8.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar",
+		"spark.executor.extraClassPath": "c:/temp/ojdbc8.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar"
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "remote",
+				"url": "${env.spark_connector_url}",
+				"param": {
+					"query" : "${env.db_query_src}",
+					"user": "${env.db_usr}",
+					"password": "${env.db_pwd}",
+					"service": "${env.db_service}",
+					"driver": "${env.db_driver}",
+					"jar_filepath": "${env.db_jar}"
+				}
+			},
+			{
+				"id_source": "local",
+				"url": "${env.spark_connector_url}",
+				"param": {
+					"query" : "${env.db_query_now}",
+					"user": "${env.db_usr}",
+					"password": "${env.db_pwd}",
+					"service": "${env.db_service}",
+					"driver": "${env.db_driver}",
+					"jar_filepath": "${env.db_jar}"
+				}
+			}
+		],
+		"DataProcess": {
+			"primary_key": "${env.primary_key}",
+			"now" : "${env.now}"
+		},
+		"DataStoring": [
+			{
+				"id_storable": "1",
+				"url": "${env.spark_connector_url}",
+				"param": {
+					"mode" : "overwrite",
+					"table": "${env.db_table_operation}",
+					"schema": "${env.db_schema}",
+					"user": "${env.db_usr}",
+					"password": "${env.db_pwd}",
+					"service": "${env.db_service}",
+					"driver": "${env.db_driver}",
+					"jar_filepath": "${env.db_jar}"
+				}
+			},
+
+			{
+				"id_storable": "2",
+				"url": "${env.connector_url}",
+				"param": {
+					"query" : "${env.query_1}",
+					"user": "${env.db_usr}",
+					"password": "${env.db_pwd}",
+					"service": "${env.db_service}",
+					"driver": "${env.db_driver}",
+					"jar_filepath": "${env.db_jar}"
+				}
+			}
+		]
+	}
+}

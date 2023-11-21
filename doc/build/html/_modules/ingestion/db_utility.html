@@ -1,0 +1,684 @@
+
+<!DOCTYPE html>
+
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ingestion.db_utility &#8212; PAT 0.1.0 documentazione</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/translations.js"></script>
+    <link rel="index" title="Indice" href="../../genindex.html" />
+    <link rel="search" title="Cerca" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Codice sorgente per ingestion.db_utility</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">date</span>
+
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">jaydebeapi</span>
+<span class="kn">import</span> <span class="nn">jpype</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">cx_Oracle</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;NO cx_Oracle&quot;</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">ingestion.utility</span> <span class="kn">import</span> <span class="n">Common</span><span class="p">,</span> <span class="n">SqlBuilder</span><span class="p">,</span> <span class="n">Json</span>
+
+
+<div class="viewcode-block" id="Db"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.Db">[documenti]</a><span class="k">class</span> <span class="nc">Db</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">driver</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">jar_filepath</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sql_builder</span><span class="o">=</span><span class="n">SqlBuilder</span><span class="p">(),</span> <span class="n">service</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># super().__init__(driver, url, user, password, jar_filepath, schema)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sql_builder</span> <span class="o">=</span> <span class="n">sql_builder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">user</span> <span class="o">=</span> <span class="n">user</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">driver</span> <span class="o">=</span> <span class="n">driver</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jar_filepath</span> <span class="o">=</span> <span class="n">jar_filepath</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">schema</span> <span class="o">=</span> <span class="n">schema</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">service</span>
+
+<div class="viewcode-block" id="Db.insert"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.Db.insert">[documenti]</a>    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">tuples</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">schema</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">table</span>
+
+        <span class="c1"># queries = self.sql_builder.to_insert(table, columns, tuples)</span>
+        <span class="c1"># self.execute_multiple_query(queries, commit=True)</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_builder</span><span class="o">.</span><span class="n">getInsertString</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">columns</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">execute_many</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">tuples</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Db.update"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.Db.update">[documenti]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">tuples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">where</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">schema</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">table</span>
+
+        <span class="n">queries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_builder</span><span class="o">.</span><span class="n">to_update</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">tuples</span><span class="p">,</span> <span class="n">where</span><span class="p">)</span>
+        <span class="c1"># self.execute_multiple_query(queries, commit=True)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">execute_many</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="n">tuples</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Db.select"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.Db.select">[documenti]</a>    <span class="k">def</span> <span class="nf">select</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">where</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">schema</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">schema</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">table</span>
+
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sql_builder</span><span class="o">.</span><span class="n">to_select</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">where</span><span class="p">,</span> <span class="n">ignore_null</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">isSelect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DbJaydebeapi"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi">[documenti]</a><span class="k">class</span> <span class="nc">DbJaydebeapi</span><span class="p">(</span><span class="n">Db</span><span class="p">):</span>
+
+<div class="viewcode-block" id="DbJaydebeapi.run_query"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.run_query">[documenti]</a>    <span class="k">def</span> <span class="nf">run_query</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            if &quot;jdbc:oracle:&quot; in self.url:</span>
+<span class="sd">                argsDb = {&#39;user&#39;: self.user, &#39;password&#39;: self.password}</span>
+<span class="sd">            elif &quot;jdbc:postgresql:&quot; in self.url:</span>
+<span class="sd">                argsDb = [self.user, self.password]</span>
+<span class="sd">            elif &quot;jdbc:impala:&quot; in self.url:</span>
+<span class="sd">                argsDb = []</span>
+<span class="sd">            &#39;&#39;&#39;</span>
+
+            <span class="n">argsDb</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">user</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">argsDb</span><span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">argsDb</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">jar_filepath</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">argsDb</span><span class="p">[</span><span class="s2">&quot;jar_filepath&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jar_filepath</span>
+
+            <span class="k">with</span> <span class="n">jaydebeapi</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">driver</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">argsDb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">jar_filepath</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">jconn</span><span class="o">.</span><span class="n">setAutoCommit</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">curs</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            to_ret = None</span>
+<span class="sd">            try :</span>
+<span class="sd">                conn = jaydebeapi.connect(self.driver, self.url, argsDb, self.jar_filepath)</span>
+<span class="sd">                curs = conn.cursor()</span>
+<span class="sd">                to_ret = func(self, conn, curs, *args, **kwargs)</span>
+<span class="sd">            except Exception as e:</span>
+<span class="sd">                traceback.print_exc()            </span>
+<span class="sd">                print(&quot;Something went wrong&quot;, e)</span>
+<span class="sd">            finally:</span>
+<span class="sd">                curs.close()</span>
+<span class="sd">                conn.close()</span>
+
+<span class="sd">            return to_ret</span>
+<span class="sd">            &#39;&#39;&#39;</span>
+
+        <span class="k">return</span> <span class="n">wrapper</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.check_table_exists"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.check_table_exists">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">check_table_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">tablename</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;jdbc:postgresql:&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">:</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;SELECT to_regclass(&#39;</span><span class="si">{</span><span class="n">tablename</span><span class="si">}</span><span class="s2">&#39;)&quot;</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;SELECT &#39;</span><span class="si">{</span><span class="n">tablename</span><span class="si">}</span><span class="s2">&#39;::regclass&quot;</span>
+        <span class="k">elif</span> <span class="s2">&quot;jdbc:oracle:&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">:</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;select object_name from all_objects where object_type in (&#39;TABLE&#39;,&#39;VIEW&#39;) and object_name=&#39;</span><span class="si">{</span><span class="n">tablename</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+            <span class="k">if</span> <span class="n">schema</span><span class="p">:</span>
+                <span class="n">stmt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stmt</span><span class="si">}</span><span class="s2"> and owner=</span><span class="si">{</span><span class="n">schema</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RETURN QUERY CHECKTABLES EXIST:&quot;</span><span class="p">,</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dbcur.fetchone() is not None: &quot;</span><span class="p">,</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TABELLA ESISTE&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;TABELLA non ESISTE&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.execute_many"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.execute_many">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_many</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">tuples</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;executeMany - query == </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">query</span><span class="p">))</span>
+        <span class="c1"># print(&quot;executeMany - tuples == {}&quot;.format(tuples))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># cast Timestamp/Date</span>
+            <span class="n">tuples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">castTimestampValues</span><span class="p">(</span><span class="n">tuples</span><span class="p">)</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">executemany</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">tuples</span><span class="p">)</span>  <span class="c1"># aggiungere tuples, query con i ? nei values, tuples coi valori [()]</span>
+            <span class="k">if</span> <span class="n">commit</span><span class="p">:</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.execute_query"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.execute_query">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">isSelect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Jdbc doesn&#39;t support named parameters (:name, ...).</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span> <span class="k">if</span> <span class="n">parameter</span> <span class="k">else</span> <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">commit</span><span class="p">:</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="c1"># return curs.lastrowid</span>
+            <span class="k">if</span> <span class="n">isSelect</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.execute_multiple_query"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.execute_multiple_query">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_multiple_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">isSelect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Jdbc doesn&#39;t support named parameters (:name, ...).</span>
+            <span class="k">for</span> <span class="n">query</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+                <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span> <span class="k">if</span> <span class="n">parameter</span> <span class="k">else</span> <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">commit</span><span class="p">:</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="c1"># return curs.lastrowid</span>
+            <span class="k">if</span> <span class="n">isSelect</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">res</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.execute_procedure"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.execute_procedure">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_procedure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">procname</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">procname</span> <span class="o">=</span> <span class="n">procname</span> <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;.&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">procname</span><span class="p">)</span> <span class="k">else</span> <span class="n">procname</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">final_procname</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">.</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="n">procname</span><span class="p">)</span>
+
+        <span class="n">proc_str</span> <span class="o">=</span> <span class="n">final_procname</span> <span class="o">+</span> <span class="s2">&quot;(</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span> <span class="k">if</span> <span class="n">parameters</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        if self.db_type in (self.DB_TYPE_POSTGRES, self.DB_TYPE_ORACLE):</span>
+<span class="sd">            procedure_query = &quot;CALL {}&quot;.format(proc_str)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">procedure_query</span> <span class="o">=</span> <span class="s2">&quot;CALL </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">proc_str</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">procedure_query</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="k">raise</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span> <span class="k">if</span> <span class="n">commit</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.castTimestampValues"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.castTimestampValues">[documenti]</a>    <span class="k">def</span> <span class="nf">castTimestampValues</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">list_tuples</span><span class="p">):</span>
+        <span class="c1"># self.initJVM(self.jar_filepath)</span>
+        <span class="n">fix_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># problema datetime eredita date----&gt; usare type</span>
+        <span class="c1"># date per campo Oracle Date: datetime.strptime(&quot;20-02-2022&quot;,&quot;%d-%m-%Y&quot;).date()</span>
+        <span class="k">for</span> <span class="n">tu</span> <span class="ow">in</span> <span class="n">list_tuples</span><span class="p">:</span>
+            <span class="n">fix_tuple</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">tu</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">==</span> <span class="n">date</span><span class="p">:</span>
+                    <span class="n">col</span> <span class="o">=</span> <span class="n">jpype</span><span class="o">.</span><span class="n">java</span><span class="o">.</span><span class="n">sql</span><span class="o">.</span><span class="n">Date</span> <span class="o">@</span> <span class="n">col</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">==</span> <span class="n">datetime</span><span class="p">:</span>
+                    <span class="n">col</span> <span class="o">=</span> <span class="n">jpype</span><span class="o">.</span><span class="n">java</span><span class="o">.</span><span class="n">sql</span><span class="o">.</span><span class="n">Timestamp</span> <span class="o">@</span> <span class="n">col</span>
+                <span class="n">fix_tuple</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+            <span class="n">fix_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">fix_tuple</span><span class="p">)</span>
+            <span class="n">fix_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fix_tuple</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fix_values</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.initJVM"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.initJVM">[documenti]</a>    <span class="k">def</span> <span class="nf">initJVM</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jar_filepath</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">jpype</span><span class="o">.</span><span class="n">isJVMStarted</span><span class="p">():</span>
+            <span class="n">jpype</span><span class="o">.</span><span class="n">shutdownJVM</span><span class="p">()</span>
+
+        <span class="n">jvm_path</span> <span class="o">=</span> <span class="n">jpype</span><span class="o">.</span><span class="n">getDefaultJVMPath</span><span class="p">()</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;-Djava.class.path=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">jar_filepath</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">jpype</span><span class="o">.</span><span class="n">startJVM</span><span class="p">(</span><span class="n">jvm_path</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">convertStrings</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DbJaydebeapi.initJVM_old"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbJaydebeapi.initJVM_old">[documenti]</a>    <span class="k">def</span> <span class="nf">initJVM_old</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jar_filepath</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">jpype</span><span class="o">.</span><span class="n">isJVMStarted</span><span class="p">():</span>
+            <span class="n">jpype</span><span class="o">.</span><span class="n">shutdownJVM</span><span class="p">()</span>
+
+        <span class="n">jvm_path</span> <span class="o">=</span> <span class="n">jpype</span><span class="o">.</span><span class="n">getDefaultJVMPath</span><span class="p">()</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;-Djava.class.path=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">jar_filepath</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="n">jpype</span><span class="o">.</span><span class="n">startJVM</span><span class="p">(</span><span class="n">jvm_path</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">convertStrings</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DbCxOracle"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle">[documenti]</a><span class="k">class</span> <span class="nc">DbCxOracle</span><span class="p">(</span><span class="n">Db</span><span class="p">):</span>
+
+<div class="viewcode-block" id="DbCxOracle.run_query"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle.run_query">[documenti]</a>    <span class="k">def</span> <span class="nf">run_query</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">string_connection</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">@</span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">service</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">cx_Oracle</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">string_connection</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">,</span> <span class="n">nencoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">autocommit</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">with</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">curs</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">wrapper</span></div>
+
+<div class="viewcode-block" id="DbCxOracle.check_table_exists"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle.check_table_exists">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">check_table_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">tablename</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="DbCxOracle.execute_many"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle.execute_many">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_many</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">tuples</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        values = []</span>
+<span class="sd">        print(&quot;executeMany tuples 1 = {}&quot;.format(tuples))</span>
+<span class="sd">        if tuples in ([], None):</span>
+<span class="sd">            return</span>
+<span class="sd">        if fields not in (None, &quot;&quot;, []):</span>
+<span class="sd">            values = []</span>
+<span class="sd">            for r in tuples:</span>
+<span class="sd">                value = {}</span>
+<span class="sd">                for i in range( len( r ) ):</span>
+<span class="sd">                    value[fields[i]] = r[i]</span>
+<span class="sd">                values.append( value )</span>
+<span class="sd">            tuples = values</span>
+<span class="sd">        self.valori = tuples</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;executeMany tuples 2 = </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tuples</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;executeMany query = </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">query</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">executemany</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">tuples</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">,</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error.code =&#39;</span><span class="p">,</span> <span class="n">error</span><span class="o">.</span><span class="n">code</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error.message =&#39;</span><span class="p">,</span> <span class="n">error</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error.offset =&#39;</span><span class="p">,</span> <span class="n">error</span><span class="o">.</span><span class="n">offset</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Row&quot;</span><span class="p">,</span> <span class="n">curs</span><span class="o">.</span><span class="n">rowcount</span><span class="p">,</span> <span class="s2">&quot;has error&quot;</span><span class="p">,</span> <span class="n">error</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">conn</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="k">raise</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span> <span class="k">if</span> <span class="n">commit</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="DbCxOracle.execute_query"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle.execute_query">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">isSelect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">isSelectColumns</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+            <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">parameter</span><span class="p">)</span> <span class="k">if</span> <span class="n">parameter</span> <span class="k">else</span> <span class="n">curs</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">cx_Oracle</span><span class="o">.</span><span class="n">DatabaseError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">,</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span> <span class="k">if</span> <span class="n">commit</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">isSelectColumns</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">curs</span><span class="o">.</span><span class="n">description</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">res</span><span class="p">,</span> <span class="n">columns</span>
+        <span class="k">elif</span> <span class="n">isSelect</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">curs</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">res</span></div>
+
+<div class="viewcode-block" id="DbCxOracle.execute_multiple_query"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle.execute_multiple_query">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_multiple_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">isSelect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># TODO</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="DbCxOracle.execute_procedure"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbCxOracle.execute_procedure">[documenti]</a>    <span class="nd">@run_query</span>
+    <span class="k">def</span> <span class="nf">execute_procedure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">,</span> <span class="n">curs</span><span class="p">,</span> <span class="n">procname</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+
+
+<div class="viewcode-block" id="DbLog"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog">[documenti]</a><span class="k">class</span> <span class="nc">DbLog</span><span class="p">(</span><span class="n">DbJaydebeapi</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">common</span> <span class="o">=</span> <span class="n">Common</span><span class="p">()</span>
+
+        <span class="n">START_TIME_ENV</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;START_TIME&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">START_TIME_ENV</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;START_TIME = &#39;</span> <span class="o">+</span> <span class="n">START_TIME_ENV</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">START_TIME_ENV</span><span class="p">,</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">driver</span><span class="o">=</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;driver&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="n">url</span><span class="o">=</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="n">user</span><span class="o">=</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="n">password</span><span class="o">=</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="n">jar_filepath</span><span class="o">=</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;jar_filepath&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">Json</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s2">&quot;schema&quot;</span><span class="p">,</span> <span class="n">defval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="DbLog.truncateLogTable"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.truncateLogTable">[documenti]</a>    <span class="k">def</span> <span class="nf">truncateLogTable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="s2">&quot;truncate table </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_table</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="DbLog.dropLogTable"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.dropLogTable">[documenti]</a>    <span class="k">def</span> <span class="nf">dropLogTable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="s2">&quot;drop table </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_table</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="DbLog.create_log_table"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.create_log_table">[documenti]</a>    <span class="k">def</span> <span class="nf">create_log_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="s2">&quot;CREATE TABLE </span><span class="si">{}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_table</span><span class="p">)</span>
+        <span class="n">query</span> <span class="o">+=</span> <span class="s2">&quot;(RUN_ID VARCHAR2(128 BYTE) NOT NULL, SCRIPT VARCHAR2(64 BYTE) NOT NULL, &quot;</span>
+        <span class="n">query</span> <span class="o">+=</span> <span class="s2">&quot;DESCRIPTION VARCHAR2(512 BYTE), EXECUTION_TIME FLOAT(126), &quot;</span>
+        <span class="n">query</span> <span class="o">+=</span> <span class="s2">&quot;EXIT_CODE NUMBER(*,0), &quot;</span>
+        <span class="n">query</span> <span class="o">+=</span> <span class="s2">&quot;START_TIME DATE, END_TIME DATE)&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DbLog.createLogTableHdfs"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.createLogTableHdfs">[documenti]</a>    <span class="k">def</span> <span class="nf">createLogTableHdfs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># solo per postgres</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="s2">&quot;CREATE TABLE </span><span class="si">{}</span><span class="s2"> &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_table_hdfs</span><span class="p">)</span>
+        <span class="n">query</span> <span class="o">+=</span> <span class="s2">&quot;(RUN_ID character varying(128) NOT NULL, FILE_HDFS character varying(300) NOT NULL)&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CreateLogTableHdfs:&quot;</span><span class="p">,</span> <span class="n">query</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span></div>
+
+        <span class="c1"># param contiene la lista dei parametri input (fields) e la lista dei valori (tuples)</span>
+
+    <span class="c1">########################################################################</span>
+    <span class="c1">####################              log               ####################</span>
+    <span class="c1">########################################################################</span>
+
+<div class="viewcode-block" id="DbLog.get_param"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.get_param">[documenti]</a>    <span class="k">def</span> <span class="nf">get_param</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">p1</span><span class="p">,</span>
+            <span class="n">p2</span><span class="p">,</span>
+            <span class="n">ignore_null</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">p1</span><span class="p">))):</span>
+            <span class="k">if</span> <span class="n">ignore_null</span> <span class="ow">and</span> <span class="n">p2</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">p1</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+                <span class="n">p2</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">val</span> <span class="o">==</span> <span class="s1">&#39;self&#39;</span><span class="p">:</span>
+                <span class="n">p1</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+                <span class="n">p2</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="DbLog.log_insert"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_insert">[documenti]</a>    <span class="k">def</span> <span class="nf">log_insert</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">script</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">execution_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">success</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">expiration_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">app_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;log_insert param == &quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span></div>
+
+<div class="viewcode-block" id="DbLog.log_update"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_update">[documenti]</a>    <span class="k">def</span> <span class="nf">log_update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">script</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">execution_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">success</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">expiration_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">app_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="n">ignore_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="c1"># where coincide con la chiave</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">where</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DbLog.log_select"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_select">[documenti]</a>    <span class="k">def</span> <span class="nf">log_select</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">script</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">execution_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">success</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">expiration_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">app_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">log_path</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]:</span> <span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">]))}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">where</span><span class="p">)</span></div>
+
+    <span class="c1">########################################################################</span>
+    <span class="c1">####################         log_operation          ####################</span>
+    <span class="c1">########################################################################</span>
+
+<div class="viewcode-block" id="DbLog.log_operation_insert"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_operation_insert">[documenti]</a>    <span class="k">def</span> <span class="nf">log_operation_insert</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_operation&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span></div>
+
+<div class="viewcode-block" id="DbLog.log_operation_update"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_operation_update">[documenti]</a>    <span class="k">def</span> <span class="nf">log_operation_update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="n">ignore_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="c1"># where coincide con la chiave</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span>
+            <span class="s2">&quot;operation&quot;</span><span class="p">:</span> <span class="n">operation</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_operation&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">where</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DbLog.log_operation_select"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_operation_select">[documenti]</a>    <span class="k">def</span> <span class="nf">log_operation_select</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]:</span> <span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">]))}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_operation&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">where</span><span class="p">)</span></div>
+
+    <span class="c1">########################################################################</span>
+    <span class="c1">####################         log_exit_code          ####################</span>
+    <span class="c1">########################################################################</span>
+
+<div class="viewcode-block" id="DbLog.log_exit_code_insert"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_exit_code_insert">[documenti]</a>    <span class="k">def</span> <span class="nf">log_exit_code_insert</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_exit_code&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span></div>
+
+<div class="viewcode-block" id="DbLog.log_exit_code_update"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_exit_code_update">[documenti]</a>    <span class="k">def</span> <span class="nf">log_exit_code_update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="n">ignore_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="c1"># where coincide con la chiave</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;exit_code&quot;</span><span class="p">:</span> <span class="n">exit_code</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_exit_code&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">where</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DbLog.log_exit_code_select"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_exit_code_select">[documenti]</a>    <span class="k">def</span> <span class="nf">log_exit_code_select</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        param = [list(locals().keys()), list(locals().values())]  # rimuovo il primo (self) parametro input</span>
+<span class="sd">        print(&quot;log_exit_code_select param_1:&quot;, param)</span>
+
+<span class="sd">        for idx, val in enumerate(param[0]):</span>
+<span class="sd">            if val == &#39;self&#39; :</span>
+<span class="sd">                param[0].pop(idx)</span>
+<span class="sd">                param[1].pop(idx)</span>
+
+<span class="sd">        print(&quot;log_exit_code_select param_2:&quot;, param)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]:</span> <span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">]))}</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;log_exit_code_select where:&quot;</span><span class="p">,</span> <span class="n">where</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_exit_code&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">where</span><span class="p">)</span></div>
+
+    <span class="c1">########################################################################</span>
+    <span class="c1">####################           log_file             ####################</span>
+    <span class="c1">########################################################################</span>
+
+<div class="viewcode-block" id="DbLog.log_file_insert"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_file_insert">[documenti]</a>    <span class="k">def</span> <span class="nf">log_file_insert</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">filepath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_file&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span></div>
+
+<div class="viewcode-block" id="DbLog.log_file_update"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_file_update">[documenti]</a>    <span class="k">def</span> <span class="nf">log_file_update</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">filepath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span><span class="n">ignore_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="c1"># where coincide con la chiave</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">exit_code</span><span class="p">,</span>
+            <span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="n">filename</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_file&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">where</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DbLog.log_file_select"><a class="viewcode-back" href="../../ingestion.html#ingestion.db_utility.DbLog.log_file_select">[documenti]</a>    <span class="k">def</span> <span class="nf">log_file_select</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">filepath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">exit_code</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">param</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="nb">locals</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="c1"># param = [list(locals().keys())[1:], list(locals().values())[1:]]  # rimuovo il primo (self) parametro input</span>
+        <span class="n">where</span> <span class="o">=</span> <span class="p">{</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]:</span> <span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">]))}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">schema</span><span class="p">,</span> <span class="s2">&quot;log_file&quot;</span><span class="p">,</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">where</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">PAT</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigazione</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Codice del modulo</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Ricerca veloce</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Vai" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Giuseppe Ventura.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

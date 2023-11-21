@@ -1,0 +1,32 @@
+{
+    "$id": "https://it.almaviva/drivebelt/ISTAT/mercipericolose.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ISTAT Merci Pericolose",
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"Categoria merce": {
+				"type": "string",
+				"description": "Materie e oggetti esplosivi,infiammabili,radioattive,comburenti e ecc.."
+			},
+			"Merce pericolosa": {
+				"type": "string",
+				"description": " Trasporto ferroviario di merce tra un luogo (carico/scarico) nel paese dichiarante per tipo,peso,anno"
+			},
+			"Tonnellate": {
+				"type": "number",
+				"description": "tonnellate in valore assoluto"
+			},
+			"Tonn KM": {
+				"type": "number",
+				"description": "tonnellate-km in migliaia"
+			},
+			"Anno di riferimento": {
+				"type": "string",
+				"description": "dati annuali per il Trasporto di merci pericolose"
+			}
+		},
+		"required": ["Merce pericolosa"]
+	}
+}

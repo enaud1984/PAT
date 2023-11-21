@@ -1,0 +1,68 @@
+{
+	"ingestion": {
+        "DataAcquisitionRead": [
+			{
+				"_comment": "jdbc + hive",
+                "table": "table_name",
+                "id_source": "remote",
+                "url_svil": "jdbc:hive2://10.207.237.212:10000/anagrafica",
+                "url": "jdbc:hive2://10.189.226.134:10000/anagrafica",
+                "param": {
+                    "query_file": "query_src.sql",
+                    "driver": "org.apache.hive.jdbc.HiveDriver",
+                    "jar_filepath": "hive-jdbc-2.3.4.jar"
+                }
+            },
+			{
+				"_comment": "fsspec + ftp file",
+				"id_source": "ftp",
+				"url": "ftp://localhost:8021/te/te_14800.json",
+				"param": {
+					"username": "pippo",
+					"password": "pippo"
+				}
+			},
+			{
+				"_comment": "spark + oracle : query in file",
+                "id_source": "remote",
+                "url": "spark:jdbc:oracle:thin:@//10.160.2.130:1521/geoanasprd",
+                "param": {
+                    "query_file": "query_src.sql",
+                    "user": "CATASTO_PUBBLICO",
+                    "password": "Pubbl1co",
+                    "service": "geoanasprd",
+                    "driver": "oracle.jdbc.driver.OracleDriver",
+                    "jar_filepath": "ojdbc8.jar"
+                }
+            },
+			{
+				"_comment": "fsspec + ftp file",
+				"id_source": "ftp",
+				"url": "ftp://localhost:8021/te/te_14800.json",
+				"param": {
+					"username": "pippo",
+					"password": "pippo"
+				}
+			},
+			{
+				"_comment": "fsspec + ftp folder",
+				"id_source": "ftp",
+				"url": "ftp://localhost:8021/te/",
+				"param": {
+					"type" : "FOLDER",
+					"username": "pippo",
+					"password": "pippo"
+				}
+			},
+			{
+				"_comment": "fsspec + hdfs folder",
+				"id_source": "hdfs",
+				"url": "webhdfs://10.206.227.251:9870/ingestion/json_example/istat_import_export_out/2016",
+				"param": {
+					"type" : "FOLDER"
+				}
+			}
+
+		]
+	}
+}

@@ -1,0 +1,57 @@
+{
+	"app": {
+		"name" : "istat_import_export",
+		"code" : 1,
+		"validity_minutes" : 1440,
+		"createhivetable": false,
+		"continue_if_except" : true,
+		"readdata_threaded" : false,
+		"writedatatooracle_threaded" : false,
+		"max_pool_thread" : 6,
+		"custom_method" : true
+	},
+	"log": {
+		"level": "DEBUG",
+		"filename": "istat_import_export%Y%m%d%H%M%S%f.log",
+		"local_folder": "/tmp",
+		"remote_folder": "/ingestion/log/istat_import_export/%Y/%m/%d/%H"
+	},
+	"common": {
+		"service" : {
+			"ingestion" : {
+				"db": {
+					"mode" : "append"
+				}
+			}
+		}
+	},
+	"service": [{
+		"url": "hdfs-http://ip-10-206-227-251.eu-west-1.compute.internal:9870/ingestion/json_example/istat_import_export_out/2022/02/10",
+		"user": "ec2-user",
+		"type": "FOLDER",
+		"timeout": 3600,
+		"raw": {
+			"hdfs": {
+				"path": "/ingestion/storage/istat_import_export/%Y/%m/%d/%H",
+				"filename": "istat_import_export%Y%m%d%H%M%S%f.json"
+			}
+		},
+		"ingestion": [
+			{
+				"db": {
+					"spark": true,
+					"type": "IMPALA",
+					"host" : "10.206.227.254",
+					"port" : "21050",
+					"database" : "drivebelt",
+					"schema" : null ,
+					"table": "istat_import_export",
+					"jar_filepath" : "/home/ec2-user/script/common/ImpalaJDBC41.jar",
+					"mode": "append"
+				}
+			}
+		]
+	}]
+}
+
+

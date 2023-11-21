@@ -1,0 +1,77 @@
+{
+	"app": {
+		"name": "NOME_APP",
+		"validity_minutes": 5,
+		"db_logger": true,
+		"init_spark": true
+	},
+	"db_log": {
+		"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"spark_conf": {
+		"spark_sql_sources_partitionOverwriteMode": "dynamic",
+		"hive_exec_dynamic_partition": "true",
+		"hive_exec_dynamic_partition_mode": "nonstrict",
+		"hive_exec_max_dynamic_partitions": "1000",
+		"hive_exec_max_dynamic_partition_pernode": "100"
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "1",
+				"url": "webhdfs://10.206.227.251:9870/ingestion/json_example/pic_treni_out/2022/02/10/PICTreni2022020710411747470306b44-bf55-4611-bd74-e2954d958df7",
+				"param": {
+					"type" : "FILE"
+				}
+			}
+		],
+		"DataAcquisitionWrite": [
+			{
+				"id_source": "1",
+				"url": "webhdfs://10.206.227.251:9870/ingestion/storage/Example",
+				"param": {
+				}
+			}
+		],
+		"DataPreProcess": [
+			{
+				"test": "test"
+			}
+		],
+		"DataProcess": [
+			{
+				"test": "test"
+			}
+		],
+		"DataStoring": [
+			{
+				"id_storable": "1",
+				"url" : "jdbc:impala://10.206.227.254:21050/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "com.cloudera.impala.jdbc41.Driver",
+					"jar_filepath" : "ImpalaJDBC41.jar"
+				}
+			},
+			{
+				"id_storable": "2",
+				"url" : "jdbc:postgresql://10.206.227.231:5432/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "org.postgresql.Driver",
+					"user" : "drivebelt",
+					"password" : "4lm42021",
+					"jar_filepath" : "postgresql-42.2.14.jar"
+				}
+			}
+		]
+	},
+    "var":{}
+}

@@ -1,0 +1,56 @@
+{
+	"app": {
+		"name": "pic_treni",
+		"validity_minutes": 1440,
+		"init_spark": true
+	},
+	"db_log": {
+		"url":"jdbc:postgresql://10.206.227.231:5432/drivebelt",
+		"schema" : "ingestion",
+		"driver" : "org.postgresql.Driver",
+		"user" : "drivebelt",
+		"password" : "4lm42021",
+		"jar_filepath" : "postgresql-42.2.14.jar"
+	},
+	"spark_conf": {
+		"spark.sql.sources.partitionOverwriteMode": "dynamic",
+		"hive.exec.dynamic.partition": "true",
+		"hive.exec.dynamic.partition.mode": "nonstrict",
+		"hive.exec.max.dynamic.partitions": "1000",
+		"hive.exec.max.dynamic.partition.pernode": "100",
+		"spark.driver.extraClassPath": "c:/temp/ImpalaJDBC41.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar",
+		"spark.executor.extraClassPath": "c:/temp/ImpalaJDBC41.jar;c:/temp/postgresql-42.2.14.jar;c:/temp/xdb.jar"
+	},
+	"ingestion": {
+		"DataAcquisitionRead": [
+			{
+				"id_source": "hdfs",
+				"url" : "spark:jdbc:postgresql://10.206.227.231:5432/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"driver" : "org.postgresql.Driver",
+					"user" : "drivebelt",
+					"password" : "4lm42021",
+					"jar_filepath" : "postgresql-42.2.14.jar"
+				}
+			}
+		],
+		"DataProcess": [
+			{}
+		],
+		"DataStoring": [
+			{
+				"id_storable": "impala",
+				"url" : "spark:jdbc:impala://10.206.227.254:21050/drivebelt",
+				"param" : {
+					"schema" : "ingestion",
+					"table" : "pic_treni",
+					"mode" : "append",
+					"driver" : "com.cloudera.impala.jdbc41.Driver",
+					"jar_filepath" : "ImpalaJDBC41.jar"
+				}
+			}
+		]
+	}
+}
